@@ -1,0 +1,12 @@
+## Interface: 30401
+## Title: Precognito
+## Author: Xyz
+## Notes: https://discord.gg/xNC7GF34dx
+## Version: 1.0
+## SavedVariables: PrecognitoDB
+
+libs.xml
+Options.lua
+API\BuilderSpenderFrame.xml
+Frames\UnitFrame.xml
+Frames\CompactUnitFrame.xml

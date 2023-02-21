@@ -1,0 +1,33 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+    <Script file="UnitFrame.lua"/>
+
+    <Frame name="HealPredictionTemplate" frameLevel="1" setAllPoints="true" virtual="true">
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture name="$parentTotalAbsorbBar" inherits="TotalAbsorbBarTemplate"/>
+                <Texture name="$parentHealAbsorbBarRightShadow" inherits="HealAbsorbBarRightShadowTemplate"/>
+                <Texture name="$parentHealAbsorbBarLeftShadow" inherits="HealAbsorbBarLeftShadowTemplate"/>
+            </Layer>
+            <Layer level="BORDER">
+                <Texture name="$parentOverHealAbsorbGlow" inherits="OverHealAbsorbGlowTemplate"/>
+                <Texture name="$parentHealAbsorbBar" inherits="HealAbsorbBarTemplate"/>
+                <Texture name="$parentMyHealPredictionBars" inherits="MyHealPredictionBarTemplate"/>
+                <Texture name="$parentOtherHealPredictionBar" inherits="OtherHealPredictionBarTemplate"/>
+                <Texture name="$parentManaCostPredictionBars" inherits="MyManaCostPredictionBarTemplate"/>
+            </Layer>
+            <Layer level="ARTWORK">
+                <Texture name="$parentTotalAbsorbBarOverlay" inherits="TotalAbsorbBarOverlayTemplate"/>
+            </Layer>
+        </Layers>
+        <Frames setAllPoints="true">
+            <Frame name="$parentFrameOverAbsorb" frameLevel="3">
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture name="$parentGlow" inherits="OverAbsorbGlowTemplate"/>
+                    </Layer>
+                </Layers>
+            </Frame>
+        </Frames>
+    </Frame>
+</Ui>
