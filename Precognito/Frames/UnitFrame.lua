@@ -1,6 +1,21 @@
 local Precognito = LibStub("AceAddon-3.0"):GetAddon("Precognito")
 local LibAbsorb = LibStub:GetLibrary("AbsorbsMonitor-1.0")
 local UnitIsUnit, UnitGUID = UnitIsUnit, UnitGUID
+local UnitHealth, UnitPower, UnitPowerType = UnitHealth, UnitPower, UnitPowerType
+local UnitGetIncomingHeals = UnitGetIncomingHeals
+local max, pairs = math.max, pairs
+local hooksecurefunc = hooksecurefunc
+
+local whitelist = {
+    ["PlayerFrame"] = "true",
+    ["TargetFrame"] = "true",
+    ["FocusFrame"] = "true",
+    ["PetFrame"] = "true",
+    -- ["PartyMemberFrame1"] = "true",
+    -- ["PartyMemberFrame2"] = "true",
+    -- ["PartyMemberFrame3"] = "true",
+    -- ["PartyMemberFrame4"] = "true",
+}
 
 function UnitGetTotalAbsorbs(unit)
     if not (unit and LibAbsorb) then
@@ -51,7 +66,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
     end
     --We don't fill outside the the health bar with absorbs.  Instead, an overAbsorbGlow is shown.
     local overAbsorb = false
-    if (health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth or health + totalAbsorb >= maxHealth) then
+    if ((health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth and Precognito.db.profile.healPredict) or health + totalAbsorb >= maxHealth) then
         if (totalAbsorb > 0) then
             overAbsorb = true
         end
@@ -197,6 +212,9 @@ end
 local function UnitFrameHealthBar_OnEvent(self, event, ...)
     if event == "VARIABLES_LOADED" then
         self:UnregisterEvent("VARIABLES_LOADED");
+        if ( GetCVarBool("predictedHealth") and self.frequentUpdates ) and self:GetScript("OnUpdate") then
+            self:SetScript("OnUpdate", nil);
+        end
         self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
         self:UnregisterEvent("UNIT_HEALTH");
     end
@@ -235,6 +253,9 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
 
     self:RegisterUnitEvent("UNIT_MAXHEALTH", self.unit);
     self:RegisterUnitEvent("UNIT_HEAL_PREDICTION", self.unit)
+    self.healthbar:RegisterEvent("VARIABLES_LOADED");
+    self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
+    self.healthbar:SetScript("OnEvent", UnitFrameHealthBar_OnEvent)
 
     if Precognito.db.profile.absorbTrack then
         UnitFrame_RegisterCallback(self)
@@ -253,9 +274,6 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
 
     if (self.unit == "player") then
         if Precognito.db.profile.animHealth then
-            self:RegisterEvent("VARIABLES_LOADED");
-            self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
-            self.healthbar:SetScript("OnEvent", UnitFrameHealthBar_OnEvent);
             self.PlayerFrameHealthBarAnimatedLoss = Mixin(CreateFrame("StatusBar", nil, self), AnimatedHealthLossMixin)
             self.PlayerFrameHealthBarAnimatedLoss:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
             self.PlayerFrameHealthBarAnimatedLoss:SetFrameLevel(self.healthbar:GetFrameLevel() - 1)
@@ -282,7 +300,8 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
 end
 
 local function UnitFrameManaBar_UpdateType(manaBar)
-    if (not manaBar) then
+    local prefix = manaBar:GetParent():GetName()
+    if (not manaBar) or not whitelist[prefix] then
         return ;
     end
 
@@ -299,8 +318,8 @@ local function UnitFrameManaBar_UpdateType(manaBar)
             manaBar.FeedbackFrame:StopFeedbackAnim();
         end
         manaBar.currValue = UnitPower("player", powerType);
-        if unitFrame.myManaCostPredictionBar then
-            unitFrame.myManaCostPredictionBar:Hide();
+        if unitFrame.myManaCostPredictionBars then
+            unitFrame.myManaCostPredictionBars:Hide();
         end
         unitFrame.predictedPowerCost = 0;
     end
@@ -347,10 +366,14 @@ local function UnitFrameHealPredictionBars_UpdateMax(self)
 end
 
 local function UF_Event(self, event, ...)
+    local prefix = self:GetName()
+
+    if not whitelist[prefix] then
+        return
+    end
+
     if (not self.myHealPredictionBars) then
         CreateFrame("Frame", nil, self, "HealPredictionTemplate")
-
-        local prefix = self:GetName()
 
         UnitFrame_Initialize(self, _G[prefix .. "MyHealPredictionBars"], _G[prefix .. "OtherHealPredictionBar"],
                 _G[prefix .. "TotalAbsorbBar"], _G[prefix .. "TotalAbsorbBarOverlay"],
@@ -373,8 +396,8 @@ local function UF_Event(self, event, ...)
             UnitFrameManaCostPredictionBars_Update(self, event == "UNIT_SPELLCAST_START", startTime, endTime, spellID)
         end
     elseif event == "VARIABLES_LOADED" then
-        if GetCVar("predictedHealth") ~= "0" then
-            SetCVar("predictedHealth", 0)
+        if GetCVar("predictedHealth") ~= "1" then
+            SetCVar("predictedHealth", 1)
         end
     end
 end
@@ -395,6 +418,10 @@ function Precognito:UFInit()
     end)
 
     hooksecurefunc("UnitFrame_Update", function(self)
+        local prefix = self:GetName()
+        if not whitelist[prefix] then
+            return
+        end
         UnitFrameHealPredictionBars_UpdateMax(self)
         UnitFrameHealPredictionBars_Update(self)
         if Precognito.db.profile.animMana then
@@ -404,10 +431,6 @@ function Precognito:UFInit()
 
     if Precognito.db.profile.animMana then
         hooksecurefunc("UnitFrameManaBar_UpdateType", UnitFrameManaBar_UpdateType)
-    end
-
-    if Precognito.db.profile.animHealth then
-        hooksecurefunc("UnitFrameHealthBar_OnEvent", UnitFrameHealthBar_OnEvent)
     end
 end
 

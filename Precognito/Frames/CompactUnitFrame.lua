@@ -1,6 +1,11 @@
 local Precognito = LibStub("AceAddon-3.0"):GetAddon("Precognito")
 local LibAbsorb = LibStub:GetLibrary("AbsorbsMonitor-1.0")
 
+local UnitExists, UnitGUID = UnitExists, UnitGUID
+local hooksecurefunc = hooksecurefunc
+local UnitGetIncomingHeals = UnitGetIncomingHeals
+local max, strfind, smatch = math.max, string.find, string.match
+
 --WARNING: This function is very similar to the function UnitFrameHealPredictionBars_Update in UnitFrame.lua.
 --If you are making changes here, it is possible you may want to make changes there as well.
 local MAX_INCOMING_HEAL_OVERFLOW = 1.05
@@ -49,7 +54,7 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
 
     local overAbsorb = false
     --We don't fill outside the the health bar with absorbs.  Instead, an overAbsorbGlow is shown.
-    if (health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth or health + totalAbsorb >= maxHealth) then
+    if ((health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth and Precognito.db.profile.CUFPredict) or health + totalAbsorb >= maxHealth) then
         if (totalAbsorb > 0) then
             overAbsorb = true
         end
@@ -251,7 +256,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
 end
 
 local function CUF_UpdateEvent(frame)
-    if not frame or frame:IsForbidden() or string.find(frame.displayedUnit, "nameplate") then
+    if not frame or frame:IsForbidden() or strfind(frame.displayedUnit, "nameplate") then
         return
     end
 
@@ -285,13 +290,13 @@ local function CUF_SetUnit(frame)
         cacheFrame[frame] = nil
     end
 
-    if frame.displayedUnit and not string.find(frame.displayedUnit, "nameplate") then
+    if frame.displayedUnit and not strfind(frame.displayedUnit, "nameplate") then
         if not frame.myHealPredictionBar then
             frame.predict = CreateFrame("Frame", nil, frame, "CompactUnitFrameTemplate2")
 
             local prefix = frame:GetName()
 
-            if string.match(prefix, "(CompactRaidFrame)%d*") then
+            if smatch(prefix, "(CompactRaidFrame)%d*") then
                 frame.predict:SetFrameLevel(3)
             else
                 frame.predict:SetFrameLevel(2)
@@ -316,7 +321,7 @@ local function CUF_Event(self, event, ...)
     local arg1 = ...
     local unit = arg1 == self.unit or arg1 == self.displayedUnit
 
-    if unit and not string.find(self.displayedUnit, "nameplate") then
+    if unit and not strfind(self.displayedUnit, "nameplate") then
         if (event == "UNIT_MAXHEALTH") then
             CompactUnitFrame_UpdateHealPrediction(self)
         elseif (event == "UNIT_HEALTH") then
@@ -325,6 +330,10 @@ local function CUF_Event(self, event, ...)
             CompactUnitFrame_UpdateHealPrediction(self)
         elseif (event == "UNIT_HEAL_PREDICTION") then
             CompactUnitFrame_UpdateHealPrediction(self)
+        elseif (event == "PLAYER_ENTERING_WORLD") then
+            if UnitExists(unit) then
+                CompactUnitFrame_UpdateHealPrediction(self)
+            end
         end
     end
 end
@@ -334,7 +343,13 @@ function Precognito:CUFInit()
         local frame = CompactRaidFrameContainer_GetUnitFrame(self, unit, frameType)
         CUF_SetUnit(frame)
     end)
+    hooksecurefunc("DefaultCompactUnitFrameSetup", CUF_SetUnit)
     hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", CUF_UpdateEvent)
     hooksecurefunc("CompactUnitFrame_OnEvent", CUF_Event)
+    --hooksecurefunc("CompactUnitFrame_UpdateAll", function(frame)
+    --    if UnitExists(frame.displayedUnit) then
+    --        CompactUnitFrame_UpdateHealPrediction(frame)
+    --    end
+    -- end)
 end
 
