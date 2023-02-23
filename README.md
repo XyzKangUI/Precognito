@@ -4,6 +4,7 @@ Uploading this under the All Rights Reserved license.
 
 I do not wish this to be distributed anywhere else.
 
+Notice: Do not use this addon in combination with either HealBarsClassic or ClassicHealPrediction.
 
 The addon adds the following Retail functions to Wrath Classic:
 
