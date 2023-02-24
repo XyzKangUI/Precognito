@@ -212,7 +212,7 @@ end
 local function UnitFrameHealthBar_OnEvent(self, event, ...)
     if event == "VARIABLES_LOADED" then
         self:UnregisterEvent("VARIABLES_LOADED");
-        if ( GetCVarBool("predictedHealth") and self.frequentUpdates ) and self:GetScript("OnUpdate") then
+        if (GetCVarBool("predictedHealth") and self.frequentUpdates) and self:GetScript("OnUpdate") then
             self:SetScript("OnUpdate", nil);
         end
         self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
@@ -273,13 +273,13 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
     end
 
     if (self.unit == "player") then
-        if Precognito.db.profile.animHealth then
-            self.PlayerFrameHealthBarAnimatedLoss = Mixin(CreateFrame("StatusBar", nil, self), AnimatedHealthLossMixin)
-            self.PlayerFrameHealthBarAnimatedLoss:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-            self.PlayerFrameHealthBarAnimatedLoss:SetFrameLevel(self.healthbar:GetFrameLevel() - 1)
-            self.PlayerFrameHealthBarAnimatedLoss:OnLoad()
-            self.PlayerFrameHealthBarAnimatedLoss:SetUnitHealthBar(self.unit, self.healthbar)
-            self.PlayerFrameHealthBarAnimatedLoss:Hide()
+        if Precognito.db.profile.animHealth and not self.PlayerFrameHealthBarAnimatedHealth then
+            self.PlayerFrameHealthBarAnimatedHealth = Mixin(CreateFrame("StatusBar", nil, self), AnimatedHealthLossMixin)
+            self.PlayerFrameHealthBarAnimatedHealth:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+            self.PlayerFrameHealthBarAnimatedHealth:SetFrameLevel(self.healthbar:GetFrameLevel() - 1)
+            self.PlayerFrameHealthBarAnimatedHealth:OnLoad()
+            self.PlayerFrameHealthBarAnimatedHealth:SetUnitHealthBar("player", self.healthbar)
+            self.PlayerFrameHealthBarAnimatedHealth:Hide()
         end
 
         if self.manabar and Precognito.db.profile.animMana then
