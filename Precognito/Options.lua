@@ -46,14 +46,14 @@ Precognito.options = {
             args = {
                 animHealth = {
                     order = 5,
-                    name = "Instant Health Updates",
-                    desc = "Updates health animation more frequently",
+                    name = "Animate Health Loss",
+                    desc = "Animates loss of health on the PlayerFrame",
                     type = "toggle",
                     arg = "animHealth",
                 },
                 animMana = {
                     order = 1,
-                    name = "Animate Power Cost",
+                    name = "Animate Power cost",
                     desc = "Displays cost of spells when casting",
                     type = "toggle",
                     arg = "animMana",
@@ -75,7 +75,7 @@ Precognito.options = {
                 Feedback = {
                     order = 2,
                     name = "Animate Full Power",
-                    desc = "Animate rage/energy when you reach max capacity in combat. Requires 'Animate Power Cost' to be enabled",
+                    desc = "Animate rage/energy when you reach max power while in combat. Requires 'Animate Power Cost' to be enabled",
                     type = "toggle",
                     arg = "FeedBack",
                 },

@@ -209,17 +209,6 @@ local function UnitFrameHealthBar_OnUpdate_New(self)
     end
 end
 
-local function UnitFrameHealthBar_OnEvent(self, event, ...)
-    if event == "VARIABLES_LOADED" then
-        self:UnregisterEvent("VARIABLES_LOADED");
-        if (GetCVarBool("predictedHealth") and self.frequentUpdates) and self:GetScript("OnUpdate") then
-            self:SetScript("OnUpdate", nil);
-        end
-        self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
-        self:UnregisterEvent("UNIT_HEALTH");
-    end
-end
-
 local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredictionBar, totalAbsorbBar, totalAbsorbBarOverlay,
                                     overAbsorbGlow, overHealAbsorbGlow, healAbsorbBar, healAbsorbBarLeftShadow, healAbsorbBarRightShadow, myManaCostPredictionBars)
 
@@ -253,9 +242,6 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
 
     self:RegisterUnitEvent("UNIT_MAXHEALTH", self.unit);
     self:RegisterUnitEvent("UNIT_HEAL_PREDICTION", self.unit)
-    self.healthbar:RegisterEvent("VARIABLES_LOADED");
-    self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
-    self.healthbar:SetScript("OnEvent", UnitFrameHealthBar_OnEvent)
 
     if Precognito.db.profile.absorbTrack then
         UnitFrame_RegisterCallback(self)
@@ -273,7 +259,8 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
     end
 
     if (self.unit == "player") then
-        if Precognito.db.profile.animHealth and not self.PlayerFrameHealthBarAnimatedHealth then
+        if Precognito.db.profile.animHealth then
+            self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New);
             self.PlayerFrameHealthBarAnimatedHealth = Mixin(CreateFrame("StatusBar", nil, self), AnimatedHealthLossMixin)
             self.PlayerFrameHealthBarAnimatedHealth:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
             self.PlayerFrameHealthBarAnimatedHealth:SetFrameLevel(self.healthbar:GetFrameLevel() - 1)
@@ -433,6 +420,4 @@ function Precognito:UFInit()
         hooksecurefunc("UnitFrameManaBar_UpdateType", UnitFrameManaBar_UpdateType)
     end
 end
-
-
 

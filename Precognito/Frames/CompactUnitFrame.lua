@@ -270,8 +270,12 @@ end
 
 local cacheFrame = {}
 
-local function CUF_SetUnit(frame)
-    if not frame or frame:IsForbidden() then
+local function CUF_SetUnit(frame, unit)
+    if not frame or frame:IsForbidden() or frame.inited or not unit then
+        return
+    end
+
+    if strfind(unit, "nameplate") then
         return
     end
 
@@ -279,7 +283,8 @@ local function CUF_SetUnit(frame)
         if not cacheFrame[frame] then
             cacheFrame[frame] = frame
         end
-        C_Timer.After(20, function() -- is this even a good idea?
+        C_Timer.After(20, function()
+            -- is this even a good idea?
             local retry = cacheFrame[frame]
             CUF_SetUnit(retry)
         end)
@@ -290,26 +295,25 @@ local function CUF_SetUnit(frame)
         cacheFrame[frame] = nil
     end
 
-    if frame.displayedUnit and not strfind(frame.displayedUnit, "nameplate") then
-        if not frame.myHealPredictionBar then
-            frame.predict = CreateFrame("Frame", nil, frame, "CompactUnitFrameTemplate2")
+    if not frame.myHealPredictionBar then
+        frame.predict = CreateFrame("Frame", nil, frame, "CompactUnitFrameTemplate2")
 
-            local prefix = frame:GetName()
-
-            if smatch(prefix, "(CompactRaidFrame)%d*") then
-                frame.predict:SetFrameLevel(3)
-            else
-                frame.predict:SetFrameLevel(2)
-            end
-
-            CompactUnitFrame_Initialize(frame, _G[prefix .. "MyHealPredictionBars"], _G[prefix .. "OtherHealPredictionBar"],
-                    _G[prefix .. "TotalAbsorbBar"], _G[prefix .. "TotalAbsorbOverlay"],
-                    _G[prefix .. "OverAbsorbGlow"], _G[prefix .. "OverHealAbsorbGlow"],
-                    _G[prefix .. "MyHealAbsorb"], _G[prefix .. "MyHealAbsorbLeftShadow"],
-                    _G[prefix .. "MyHealAbsorbRightShadow"])
-
-            CompactUnitFrame_UpdateHealPrediction(frame)
+        local prefix = frame:GetName()
+        if smatch(prefix, "(CompactRaidFrame)%d*") then
+            frame.predict:SetFrameLevel(3)
+        else
+            frame.predict:SetFrameLevel(2)
         end
+
+        CompactUnitFrame_Initialize(frame, _G[prefix .. "MyHealPredictionBars"], _G[prefix .. "OtherHealPredictionBar"],
+                _G[prefix .. "TotalAbsorbBar"], _G[prefix .. "TotalAbsorbOverlay"],
+                _G[prefix .. "OverAbsorbGlow"], _G[prefix .. "OverHealAbsorbGlow"],
+                _G[prefix .. "MyHealAbsorb"], _G[prefix .. "MyHealAbsorbLeftShadow"],
+                _G[prefix .. "MyHealAbsorbRightShadow"])
+
+        CompactUnitFrame_UpdateHealPrediction(frame)
+
+        frame.inited = true
     end
 end
 
@@ -339,17 +343,10 @@ local function CUF_Event(self, event, ...)
 end
 
 function Precognito:CUFInit()
-    hooksecurefunc("CompactRaidFrameContainer_AddUnitFrame", function(self, unit, frameType)
-        local frame = CompactRaidFrameContainer_GetUnitFrame(self, unit, frameType)
-        CUF_SetUnit(frame)
-    end)
-    hooksecurefunc("DefaultCompactUnitFrameSetup", CUF_SetUnit)
+    hooksecurefunc("CompactUnitFrame_SetUnit", CUF_SetUnit)
     hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", CUF_UpdateEvent)
     hooksecurefunc("CompactUnitFrame_OnEvent", CUF_Event)
-    --hooksecurefunc("CompactUnitFrame_UpdateAll", function(frame)
-    --    if UnitExists(frame.displayedUnit) then
-    --        CompactUnitFrame_UpdateHealPrediction(frame)
-    --    end
-    -- end)
 end
+
+
 
