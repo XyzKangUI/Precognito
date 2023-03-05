@@ -269,17 +269,19 @@ local function UnitFrame_Initialize(self, myHealPredictionBars, otherHealPredict
             self.PlayerFrameHealthBarAnimatedHealth:Hide()
         end
 
-        if self.manabar and Precognito.db.profile.animMana then
-            self.manabar.FeedbackFrame = CreateFrame("Frame", nil, self.manabar, "BuilderSpenderFrame")
-            self.manabar.FeedbackFrame:SetAllPoints()
-            self.manabar.FeedbackFrame:SetFrameLevel(self:GetParent():GetFrameLevel() + 2)
+        if self.manabar then
+            if Precognito.db.profile.animMana then
+                self.manabar.FeedbackFrame = CreateFrame("Frame", nil, self.manabar, "BuilderSpenderFrame")
+                self.manabar.FeedbackFrame:SetAllPoints()
+                self.manabar.FeedbackFrame:SetFrameLevel(self:GetParent():GetFrameLevel() + 2)
+                self.manabar:SetScript("OnUpdate", UnitFrameManaBar_OnUpdate)
+            end
 
             if Precognito.db.profile.FeedBack then
                 self.manabar.FullPowerFrame = CreateFrame("Frame", nil, self.manabar, "FullResourcePulseFrame")
                 self.manabar.FullPowerFrame:SetPoint("TOPRIGHT", 0, 0)
                 self.manabar.FullPowerFrame:SetSize(119, 12)
             end
-            self.manabar:SetScript("OnUpdate", UnitFrameManaBar_OnUpdate)
         end
     end
 
@@ -294,6 +296,14 @@ local function UnitFrameManaBar_UpdateType(manaBar)
 
     local unitFrame = manaBar:GetParent();
     local powerType, powerToken = UnitPowerType(manaBar.unit);
+    local info = PowerBarColor[powerToken];
+    if ( info ) then
+        if ( not manaBar.lockColor ) then
+            if ( manaBar.FullPowerFrame ) and Precognito.db.profile.FeedBack then
+                manaBar.FullPowerFrame:Initialize(true);
+            end
+        end
+    end
 
     if (manaBar.powerType ~= powerType or manaBar.powerType ~= powerType) then
         manaBar.powerType = powerType;
@@ -416,7 +426,7 @@ function Precognito:UFInit()
         end
     end)
 
-    if Precognito.db.profile.animMana then
+    if Precognito.db.profile.animMana or Precognito.db.profile.FeedBack then
         hooksecurefunc("UnitFrameManaBar_UpdateType", UnitFrameManaBar_UpdateType)
     end
 end

@@ -75,7 +75,7 @@ Precognito.options = {
                 Feedback = {
                     order = 2,
                     name = "Animate Full Power",
-                    desc = "Animate rage/energy when you reach max power while in combat. Requires 'Animate Power Cost' to be enabled",
+                    desc = "Animate the manaBar when you reach max power while in combat.",
                     type = "toggle",
                     arg = "FeedBack",
                 },
