@@ -31,10 +31,10 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         myCurrentHealAbsorb = 0
         --myCurrentHealAbsorb = fake.healAbsorb
         if (health < myCurrentHealAbsorb) then
-            frame.overHealAbsorbGlowBar:Show()
+            frame.overHealAbsorbGlowBar:SetAlpha(1)
             myCurrentHealAbsorb = health
         else
-            frame.overHealAbsorbGlowBar:Hide()
+            frame.overHealAbsorbGlowBar:SetAlpha(0)
         end
     end
 
@@ -66,9 +66,9 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         end
     end
     if (overAbsorb) and Precognito.db.profile.CUFAbsorb then
-        frame.overAbsorbGlowBar:Show()
+        frame.overAbsorbGlowBar:SetAlpha(1)
     else
-        frame.overAbsorbGlowBar:Hide()
+        frame.overAbsorbGlowBar:SetAlpha(0)
     end
 
     local healthTexture = frame.healthBar:GetStatusBarTexture()
@@ -87,25 +87,25 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         --If there are incoming heals the left shadow would be overlayed by the incoming heals
         --so it isn't shown.
         if (allIncomingHeal > 0) then
-            frame.myHealAbsorbBarLeftShadow:Hide()
+            frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
         else
             frame.myHealAbsorbBarLeftShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPLEFT", 0, 0)
             frame.myHealAbsorbBarLeftShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMLEFT", 0, 0)
-            frame.myHealAbsorbBarLeftShadow:Show()
+            frame.myHealAbsorbBarLeftShadow:SetAlpha(1)
         end
 
         -- The right shadow is only shown if there are absorbs on the health bar.
         if (totalAbsorb > 0) then
             frame.myHealAbsorbBarRightShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPRIGHT", -8, 0)
             frame.myHealAbsorbBarRightShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMRIGHT", -8, 0)
-            frame.myHealAbsorbBarRightShadow:Show()
+            frame.myHealAbsorbBarRightShadow:SetAlpha(1)
         else
-            frame.myHealAbsorbBarRightShadow:Hide()
+            frame.myHealAbsorbBarRightShadow:SetAlpha(0)
         end
     else
-        frame.myHealAbsorbBar:Hide()
-        frame.myHealAbsorbBarRightShadow:Hide()
-        frame.myHealAbsorbBarLeftShadow:Hide()
+        frame.myHealAbsorbBar:SetAlpha(0)
+        frame.myHealAbsorbBarRightShadow:SetAlpha(0)
+        frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
     end
 
     --Show myIncomingHeal on the health bar.
@@ -201,13 +201,16 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
     if frame.myHealAbsorbBar then
         frame.myHealAbsorbBar:ClearAllPoints()
         frame.myHealAbsorbBar:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
+        frame.myHealAbsorbBar:SetAlpha(0)
     end
 
     if frame.myHealAbsorbBarLeftShadow then
         frame.myHealAbsorbBarLeftShadow:ClearAllPoints()
+        frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
     end
     if frame.myHealAbsorbBarRightShadow then
         frame.myHealAbsorbBarRightShadow:ClearAllPoints()
+        frame.myHealAbsorbBarRightShadow:SetAlpha(0)
     end
 
     if frame.otherHealPredictionBar then
@@ -235,6 +238,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
         frame.overAbsorbGlowBar:SetPoint("BOTTOMLEFT", frame.healthBar, "BOTTOMRIGHT", -7, 0)
         frame.overAbsorbGlowBar:SetPoint("TOPLEFT", frame.healthBar, "TOPRIGHT", -7, 0)
         frame.overAbsorbGlowBar:SetWidth(16)
+        frame.overAbsorbGlowBar:SetAlpha(0)
     end
 
     if frame.overHealAbsorbGlowBar then
@@ -244,6 +248,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
         frame.overHealAbsorbGlowBar:SetPoint("BOTTOMRIGHT", frame.healthBar, "BOTTOMLEFT", 7, 0)
         frame.overHealAbsorbGlowBar:SetPoint("TOPRIGHT", frame.healthBar, "TOPLEFT", 7, 0)
         frame.overHealAbsorbGlowBar:SetWidth(16)
+        frame.overHealAbsorbGlowBar:SetAlpha(0)
     end
 
     if Precognito.db.profile.CUFAbsorb then
@@ -346,6 +351,11 @@ function Precognito:CUFInit()
     hooksecurefunc("CompactUnitFrame_SetUnit", CUF_SetUnit)
     hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", CUF_UpdateEvent)
     hooksecurefunc("CompactUnitFrame_OnEvent", CUF_Event)
+    hooksecurefunc("CompactUnitFrame_UpdateAll", function(self)
+        if UnitExists(self.displayedUnit) then
+            CompactUnitFrame_UpdateHealPrediction(self)
+        end
+    end)
 end
 
 
