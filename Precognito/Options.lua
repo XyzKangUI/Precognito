@@ -20,6 +20,10 @@ Precognito.options = {
     get = getOption,
     set = setOption,
     args = {
+        version = {
+            name = "|cff89CFF0Version:|r "..GetAddOnMetadata("Precognito", "Version").."\n",
+            type = "description"
+        },
         tab1 = {
             type = "group",
             name = "RaidFrame Settings",

@@ -10,7 +10,8 @@ local max, strfind, smatch = math.max, string.find, string.match
 --If you are making changes here, it is possible you may want to make changes there as well.
 local MAX_INCOMING_HEAL_OVERFLOW = 1.05
 local function CompactUnitFrame_UpdateHealPrediction(frame)
-    if not frame or frame:IsForbidden() or not frame:GetName() or not frame.Ready then
+    -- CompactRaidFrameManagerDisplayFrameOptionFlowContainer
+    if not frame or frame:IsForbidden() or not frame:GetName() or not frame.Ready or CompactRaidFrameContainer.flowPauseUpdates then
         return
     end
 
@@ -357,6 +358,7 @@ function Precognito:CUFInit()
         end
     end)
 end
+
 
 
 

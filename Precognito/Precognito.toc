@@ -2,7 +2,7 @@
 ## Title: Precognito
 ## Author: Xyz
 ## Notes: https://discord.gg/xNC7GF34dx
-## Version: 1.9
+## Version: 2.0
 ## SavedVariables: PrecognitoDB
 
 libs.xml

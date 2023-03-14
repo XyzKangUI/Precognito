@@ -10,7 +10,6 @@ local whitelist = {
     ["PlayerFrame"] = "true",
     ["TargetFrame"] = "true",
     ["FocusFrame"] = "true",
-    ["PetFrame"] = "true",
     -- ["PartyMemberFrame1"] = "true",
     -- ["PartyMemberFrame2"] = "true",
     -- ["PartyMemberFrame3"] = "true",
