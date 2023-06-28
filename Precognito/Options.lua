@@ -1,6 +1,7 @@
 Precognito = LibStub("AceAddon-3.0"):NewAddon("Precognito")
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 
 local function getOption(info, value)
     if value then
@@ -41,6 +42,12 @@ Precognito.options = {
                     desc = "Tracks shield absorbs",
                     type = "toggle",
                     arg = "CUFAbsorb",
+                },
+                CUFOvershield = {
+                    order = 3,
+                    name = "Always show total shield amount",
+                    type = "toggle",
+                    arg = "CUFOvershield",
                 },
             },
         },
@@ -83,6 +90,12 @@ Precognito.options = {
                     type = "toggle",
                     arg = "FeedBack",
                 },
+                Overshield = {
+                    order = 6,
+                    name = "Always show total shield amount",
+                    type = "toggle",
+                    arg = "Overshield",
+                },
             },
         },
         tab3 = {
@@ -110,7 +123,9 @@ Precognito.defaults = {
         CUFPredict = true,
         CUFAbsorb = true,
         syncMsg = false,
-        FeedBack = true
+        FeedBack = true,
+        Overshield = false,
+        CUFOvershield = false
     },
 }
 

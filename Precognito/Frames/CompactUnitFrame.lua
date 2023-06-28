@@ -131,6 +131,50 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
     if Precognito.db.profile.CUFAbsorb then
         CompactUnitFrameUtil_UpdateFillBar(frame, appendTexture, frame.totalAbsorbBar, totalAbsorb)
     end
+
+    if Precognito.db.profile.CUFOvershield then
+        local absorbBar = frame.totalAbsorb;
+        if not absorbBar or absorbBar:IsForbidden() then
+            return
+        end
+
+        local absorbOverlay = frame.totalAbsorbOverlay;
+        if not absorbOverlay or absorbOverlay:IsForbidden() then
+            return
+        end
+
+        local healthBar = frame.healthBar;
+        if not healthBar or healthBar:IsForbidden() then
+            return
+        end
+
+        local _, maxHealth = healthBar:GetMinMaxValues();
+        if maxHealth <= 0 then
+            return
+        end
+
+        local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0;
+        if totalAbsorb > maxHealth then
+            totalAbsorb = maxHealth;
+        end
+
+        if totalAbsorb > 0 then
+            if absorbBar:IsShown() then
+                absorbOverlay:SetPoint("TOPRIGHT", absorbBar, "TOPRIGHT", 0, 0);
+                absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar, "BOTTOMRIGHT", 0, 0);
+            else
+                absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0);
+                absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0);
+            end
+
+            local totalWidth, totalHeight = healthBar:GetSize();
+            local barSize = totalAbsorb / maxHealth * totalWidth;
+
+            absorbOverlay:SetWidth(barSize);
+            absorbOverlay:SetTexCoord(0, barSize / absorbOverlay.tileSize, 0, totalHeight / absorbOverlay.tileSize);
+            absorbOverlay:Show();
+        end
+    end
 end
 
 local function CompactUnitFrame_FireEvent(self, event)
@@ -256,7 +300,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
         CompactUnitFrame_RegisterCallback(frame)
     end
 
-    CompactUnitFrame_UpdateAll(frame)
+    --CompactUnitFrame_UpdateAll(frame)
 
     frame.Ready = true
 end
@@ -354,7 +398,37 @@ function Precognito:CUFInit()
     hooksecurefunc("CompactUnitFrame_OnEvent", CUF_Event)
     hooksecurefunc("CompactUnitFrame_UpdateAll", function(self)
         if UnitExists(self.displayedUnit) then
-            CompactUnitFrame_UpdateHealPrediction(self)
+            if not InCombatLockdown() then
+                CompactUnitFrame_UpdateHealPrediction(self)
+            end
+            if Precognito.db.profile.CUFOvershield then
+                local absorbBar = self.totalAbsorb;
+                if not absorbBar or absorbBar:IsForbidden() then
+                    return
+                end
+
+                local absorbOverlay = self.totalAbsorbOverlay;
+                if not absorbOverlay or absorbOverlay:IsForbidden() then
+                    return
+                end
+
+                local healthBar = self.healthBar;
+                if not healthBar or healthBar:IsForbidden() then
+                    return
+                end
+
+                absorbOverlay:SetParent(healthBar)
+                absorbOverlay:ClearAllPoints()
+                absorbOverlay:SetDrawLayer("OVERLAY")
+
+                local absorbGlow = self.overAbsorbGlow;
+                if absorbGlow and not absorbGlow:IsForbidden() then
+                    absorbGlow:ClearAllPoints()
+                    absorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", -5, 0);
+                    absorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", -5, 0);
+                    absorbGlow:SetAlpha(0.6);
+                end
+            end
         end
     end)
 end

@@ -10,10 +10,6 @@ local whitelist = {
     ["PlayerFrame"] = "true",
     ["TargetFrame"] = "true",
     ["FocusFrame"] = "true",
-    -- ["PartyMemberFrame1"] = "true",
-    -- ["PartyMemberFrame2"] = "true",
-    -- ["PartyMemberFrame3"] = "true",
-    -- ["PartyMemberFrame4"] = "true",
 }
 
 function UnitGetTotalAbsorbs(unit)
@@ -144,6 +140,50 @@ local function UnitFrameHealPredictionBars_Update(frame)
     end
     if Precognito.db.profile.absorbTrack then
         UnitFrameUtil_UpdateFillBar(frame, appendTexture, frame.totalAbsorbBar, totalAbsorb)
+    end
+
+    if Precognito.db.profile.Overshield then
+        local absorbBar = frame.totalAbsorbBar;
+        if not absorbBar or absorbBar:IsForbidden() then
+            return
+        end
+
+        local absorbOverlay = frame.totalAbsorbBarOverlay;
+        if not absorbOverlay or absorbOverlay:IsForbidden() then
+            return
+        end
+
+        local healthBar = frame.healthbar;
+        if not healthBar or healthBar:IsForbidden() then
+            return
+        end
+
+        local _, maxHealth = healthBar:GetMinMaxValues()
+        if maxHealth <= 0 then
+            return
+        end
+
+        local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0
+        if totalAbsorb > maxHealth then
+            totalAbsorb = maxHealth;
+        end
+
+        if totalAbsorb > 0 then
+            if absorbBar:IsShown() then
+                absorbOverlay:SetPoint("TOPRIGHT", absorbBar, "TOPRIGHT", 0, 0);
+                absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar, "BOTTOMRIGHT", 0, 0);
+            else
+                absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0);
+                absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0);
+            end
+
+            local totalWidth, totalHeight = healthBar:GetSize();
+            local barSize = totalAbsorb / maxHealth * totalWidth;
+
+            absorbOverlay:SetWidth(barSize);
+            absorbOverlay:SetTexCoord(0, barSize / absorbOverlay.tileSize, 0, totalHeight / absorbOverlay.tileSize);
+            absorbOverlay:Show();
+        end
     end
 end
 
@@ -296,9 +336,9 @@ local function UnitFrameManaBar_UpdateType(manaBar)
     local unitFrame = manaBar:GetParent();
     local powerType, powerToken = UnitPowerType(manaBar.unit);
     local info = PowerBarColor[powerToken];
-    if ( info ) then
-        if ( not manaBar.lockColor ) then
-            if ( manaBar.FullPowerFrame ) and Precognito.db.profile.FeedBack then
+    if (info) then
+        if (not manaBar.lockColor) then
+            if (manaBar.FullPowerFrame) and Precognito.db.profile.FeedBack then
                 manaBar.FullPowerFrame:Initialize(true);
             end
         end
@@ -422,6 +462,35 @@ function Precognito:UFInit()
         UnitFrameHealPredictionBars_Update(self)
         if Precognito.db.profile.animMana then
             UnitFrameManaCostPredictionBars_Update(self)
+        end
+
+        if Precognito.db.profile.Overshield then
+            local absorbBar = self.totalAbsorbBar;
+            if not absorbBar or absorbBar:IsForbidden() then
+                return
+            end
+
+            local absorbOverlay = self.totalAbsorbBarOverlay;
+            if not absorbOverlay or absorbOverlay:IsForbidden() then
+                return
+            end
+
+            local healthBar = self.healthbar;
+            if not healthBar or healthBar:IsForbidden() then
+                return
+            end
+
+            absorbOverlay:SetParent(healthBar);
+            absorbOverlay:ClearAllPoints();
+            absorbOverlay:SetDrawLayer("OVERLAY")
+
+            if self.overAbsorbGlow and not self.overAbsorbGlow:IsForbidden() then
+                self.overAbsorbGlow:ClearAllPoints();
+                self.overAbsorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", -5, 0);
+                self.overAbsorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", -5, 0);
+                self.overAbsorbGlow:SetAlpha(0.6);
+                self.overAbsorbGlow:SetDrawLayer("OVERLAY")
+            end
         end
     end)
 
