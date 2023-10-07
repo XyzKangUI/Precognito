@@ -4,6 +4,7 @@ Uploading this under the All Rights Reserved license.
 
 I do not wish this to be distributed anywhere else.
 
+For the latest release visit: https://discord.gg/CtxPasSQnQ
 
 ***Notice: Do not use this addon in combination with either HealBarsClassic or ClassicHealPrediction***
 
