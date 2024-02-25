@@ -3,7 +3,7 @@ local LibAbsorb = LibStub:GetLibrary("AbsorbsMonitor-1.0")
 local UnitIsUnit, UnitGUID = UnitIsUnit, UnitGUID
 local UnitHealth, UnitPower, UnitPowerType = UnitHealth, UnitPower, UnitPowerType
 local UnitGetIncomingHeals = UnitGetIncomingHeals
-local max, pairs = math.max, pairs
+local min, max, pairs = math.min, math.max, pairs
 local hooksecurefunc = hooksecurefunc
 
 local whitelist = {
@@ -181,7 +181,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
             local barSize = totalAbsorb / maxHealth * totalWidth;
 
             absorbOverlay:SetWidth(barSize);
-            absorbOverlay:SetTexCoord(0, barSize / absorbOverlay.tileSize, 0, totalHeight / absorbOverlay.tileSize);
+            absorbOverlay:SetTexCoord(0, min(max(barSize / absorbOverlay.tileSize, 0), 1), 0, min(max(totalHeight / absorbOverlay.tileSize, 0), 1));
             absorbOverlay:Show();
         end
     end

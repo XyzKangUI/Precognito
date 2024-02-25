@@ -1,8 +1,8 @@
-## Interface: 30402
+## Interface: 30403
 ## Title: Precognito
 ## Author: Xyz
-## Notes: https://discord.gg/xNC7GF34dx
-## Version: 2.2
+## Notes: discord.gg/CtxPasSQnQ
+## Version: 2.6
 ## SavedVariables: PrecognitoDB
 
 libs.xml

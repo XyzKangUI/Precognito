@@ -10,10 +10,10 @@
                 <Texture name="$parentOtherHealPredictionBar" parentKey="otherHealPredictionBar"/>
                 <Texture name="$parentTotalAbsorbBar" parentKey="totalAbsorbBar"/>
             </Layer>
-            <Layer level="ARTWORK" textureSubLevel="6">
+            <Layer level="BORDER" textureSubLevel="6">
                 <Texture name="$parentTotalAbsorbOverlay" parentKey="totalAbsorbOverlayBar"/>
             </Layer>
-            <Layer level="BORDER" textureSubLevel="1">
+            <Layer level="ARTWORK" textureSubLevel="1">
                 <Texture name="$parentMyHealAbsorb" parentKey="myHealAbsorbBar"/>
                 <Texture name="$parentMyHealAbsorbLeftShadow" parentKey="myHealAbsorbBarLeftShadow"
                          file="Interface\RaidFrame\Absorb-Edge"/>
@@ -22,7 +22,7 @@
                     <TexCoords left="1" right="0" top="0" bottom="1"/>
                 </Texture>
             </Layer>
-            <Layer level="BORDER" textureSubLevel="2">
+            <Layer level="ARTWORK" textureSubLevel="2">
                 <Texture name="$parentOverAbsorbGlow" parentKey="overAbsorbGlowBar"/>
                 <Texture name="$parentOverHealAbsorbGlow" parentKey="overHealAbsorbGlowBar"/>
             </Layer>

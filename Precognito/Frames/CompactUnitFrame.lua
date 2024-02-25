@@ -4,39 +4,38 @@ local LibAbsorb = LibStub:GetLibrary("AbsorbsMonitor-1.0")
 local UnitExists, UnitGUID = UnitExists, UnitGUID
 local hooksecurefunc = hooksecurefunc
 local UnitGetIncomingHeals = UnitGetIncomingHeals
-local max, strfind, smatch = math.max, string.find, string.match
+local min, max, strfind = math.min, math.max, string.find
+local storedFrames = {}
 
 --WARNING: This function is very similar to the function UnitFrameHealPredictionBars_Update in UnitFrame.lua.
 --If you are making changes here, it is possible you may want to make changes there as well.
 local MAX_INCOMING_HEAL_OVERFLOW = 1.05
 local function CompactUnitFrame_UpdateHealPrediction(frame)
-    -- CompactRaidFrameManagerDisplayFrameOptionFlowContainer
-    if not frame or frame:IsForbidden() or not frame:GetName() or not frame.Ready or CompactRaidFrameContainer.flowPauseUpdates then
+    if not frame or not frame:IsVisible() then
         return
     end
 
     local _, maxHealth = frame.healthBar:GetMinMaxValues()
     local health = frame.healthBar:GetValue()
+    local unit = frame.unit
 
     if (maxHealth <= 0) then
         return
     end
 
-    local myIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit, "player") or 0
-    local allIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit) or 0
-    local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0
+    local myIncomingHeal = UnitGetIncomingHeals(unit, "player") or 0
+    local allIncomingHeal = UnitGetIncomingHeals(unit) or 0
+    local totalAbsorb = UnitGetTotalAbsorbs(unit) or 0
     local myCurrentHealAbsorb = 0
 
-    if (frame.myHealAbsorbBar) then
-        --We don't fill outside the health bar with healAbsorbs.  Instead, an overHealAbsorbGlow is shown.
-        myCurrentHealAbsorb = 0
-        --myCurrentHealAbsorb = fake.healAbsorb
-        if (health < myCurrentHealAbsorb) then
-            frame.overHealAbsorbGlowBar:SetAlpha(1)
-            myCurrentHealAbsorb = health
-        else
-            frame.overHealAbsorbGlowBar:SetAlpha(0)
-        end
+    --We don't fill outside the health bar with healAbsorbs.  Instead, an overHealAbsorbGlow is shown.
+    myCurrentHealAbsorb = 0
+    --myCurrentHealAbsorb = fake.healAbsorb
+    if (health < myCurrentHealAbsorb) then
+        frame.overHealAbsorbGlowBar:Show()
+        myCurrentHealAbsorb = health
+    else
+        frame.overHealAbsorbGlowBar:Hide()
     end
 
     --See how far we're going over the health bar and make sure we don't go too far out of the frame.
@@ -67,14 +66,14 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         end
     end
     if (overAbsorb) and Precognito.db.profile.CUFAbsorb then
-        frame.overAbsorbGlowBar:SetAlpha(1)
+        frame.overAbsorbGlowBar:Show()
     else
-        frame.overAbsorbGlowBar:SetAlpha(0)
+        frame.overAbsorbGlowBar:Hide()
     end
 
     local healthTexture = frame.healthBar:GetStatusBarTexture()
 
-    local myCurrentHealAbsorbPercent = myCurrentHealAbsorb / maxHealth
+    local myCurrentHealAbsorbPercent = myCurrentHealAbsorb / maxHealth;
 
     local healAbsorbTexture = nil
 
@@ -83,38 +82,42 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
     if (myCurrentHealAbsorb > allIncomingHeal) then
         local shownHealAbsorb = myCurrentHealAbsorb - allIncomingHeal
         local shownHealAbsorbPercent = shownHealAbsorb / maxHealth
-        healAbsorbTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, frame.myHealAbsorbBar, shownHealAbsorb, -shownHealAbsorbPercent)
+        healAbsorbTexture = CompactUnitFrameUtil_UpdateFillBar(frame:GetParent(), healthTexture, frame.myHealAbsorbBar, shownHealAbsorb, -shownHealAbsorbPercent)
 
         --If there are incoming heals the left shadow would be overlayed by the incoming heals
         --so it isn't shown.
         if (allIncomingHeal > 0) then
-            frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
+            frame.myHealAbsorbBarLeftShadow:Hide()
         else
             frame.myHealAbsorbBarLeftShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPLEFT", 0, 0)
             frame.myHealAbsorbBarLeftShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMLEFT", 0, 0)
-            frame.myHealAbsorbBarLeftShadow:SetAlpha(1)
+            frame.myHealAbsorbBarLeftShadow:Show()
         end
 
         -- The right shadow is only shown if there are absorbs on the health bar.
         if (totalAbsorb > 0) then
             frame.myHealAbsorbBarRightShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPRIGHT", -8, 0)
             frame.myHealAbsorbBarRightShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMRIGHT", -8, 0)
-            frame.myHealAbsorbBarRightShadow:SetAlpha(1)
+            frame.myHealAbsorbBarRightShadow:Show()
         else
-            frame.myHealAbsorbBarRightShadow:SetAlpha(0)
+            frame.myHealAbsorbBarRightShadow:Hide()
         end
     else
-        frame.myHealAbsorbBar:SetAlpha(0)
-        frame.myHealAbsorbBarRightShadow:SetAlpha(0)
-        frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
+        frame.myHealAbsorbBar:Hide()
+        frame.myHealAbsorbBarRightShadow:Hide()
+        frame.myHealAbsorbBarLeftShadow:Hide()
     end
 
     --Show myIncomingHeal on the health bar.
     local incomingHealsTexture
     if Precognito.db.profile.CUFPredict then
-        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, frame.myHealPredictionBar, myIncomingHeal, -myCurrentHealAbsorbPercent)
+        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame:GetParent(), healthTexture, frame.myHealPredictionBar, myIncomingHeal, -myCurrentHealAbsorbPercent)
         --Append otherIncomingHeal on the health bar.
-        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, frame.otherHealPredictionBar, otherIncomingHeal)
+        if (myIncomingHeal > 0) then
+            incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame:GetParent(), incomingHealsTexture, frame.otherHealPredictionBar, otherIncomingHeal)
+        else
+            incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame:GetParent(), healthTexture, frame.otherHealPredictionBar, otherIncomingHeal, -myCurrentHealAbsorbPercent)
+        end
     else
         incomingHealsTexture = healthTexture
     end
@@ -129,16 +132,16 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         appendTexture = incomingHealsTexture
     end
     if Precognito.db.profile.CUFAbsorb then
-        CompactUnitFrameUtil_UpdateFillBar(frame, appendTexture, frame.totalAbsorbBar, totalAbsorb)
+        CompactUnitFrameUtil_UpdateFillBar(frame:GetParent(), appendTexture, frame.totalAbsorbBar, totalAbsorb)
     end
 
     if Precognito.db.profile.CUFOvershield then
-        local absorbBar = frame.totalAbsorb;
+        local absorbBar = frame.totalAbsorbBar;
         if not absorbBar or absorbBar:IsForbidden() then
             return
         end
 
-        local absorbOverlay = frame.totalAbsorbOverlay;
+        local absorbOverlay = frame.totalAbsorbOverlayBar;
         if not absorbOverlay or absorbOverlay:IsForbidden() then
             return
         end
@@ -153,7 +156,7 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
             return
         end
 
-        local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0;
+        local totalAbsorb = UnitGetTotalAbsorbs(unit or 0)
         if totalAbsorb > maxHealth then
             totalAbsorb = maxHealth;
         end
@@ -171,8 +174,8 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
             local barSize = totalAbsorb / maxHealth * totalWidth;
 
             absorbOverlay:SetWidth(barSize);
-            absorbOverlay:SetTexCoord(0, barSize / absorbOverlay.tileSize, 0, totalHeight / absorbOverlay.tileSize);
-            absorbOverlay:Show();
+            absorbOverlay:SetTexCoord(0, min(max(barSize / absorbOverlay.tileSize, 0), 1), 0, min(max(totalHeight / absorbOverlay.tileSize, 0), 1));
+            absorbOverlay:Show()
         end
     end
 end
@@ -223,10 +226,6 @@ end
 local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHealPredictionBar, totalAbsorbBar, totalAbsorbOverlayBar,
                                            overAbsorbGlowBar, overHealAbsorbGlowBar, myHealAbsorbBar, myHealAbsorbBarLeftShadow, myHealAbsorbBarRightShadow)
 
-    if not frame or frame:IsForbidden() then
-        return
-    end
-
     frame.myHealPredictionBar = myHealPredictionBar
     frame.otherHealPredictionBar = otherHealPredictionBar
     frame.totalAbsorbBar = totalAbsorbBar
@@ -246,16 +245,15 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
     if frame.myHealAbsorbBar then
         frame.myHealAbsorbBar:ClearAllPoints()
         frame.myHealAbsorbBar:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
-        frame.myHealAbsorbBar:SetAlpha(0)
     end
 
     if frame.myHealAbsorbBarLeftShadow then
         frame.myHealAbsorbBarLeftShadow:ClearAllPoints()
-        frame.myHealAbsorbBarLeftShadow:SetAlpha(0)
+        frame.myHealAbsorbBarLeftShadow:Hide()
     end
     if frame.myHealAbsorbBarRightShadow then
         frame.myHealAbsorbBarRightShadow:ClearAllPoints()
-        frame.myHealAbsorbBarRightShadow:SetAlpha(0)
+        frame.myHealAbsorbBarRightShadow:Hide()
     end
 
     if frame.otherHealPredictionBar then
@@ -267,6 +265,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
     if frame.totalAbsorbBar then
         frame.totalAbsorbBar:ClearAllPoints()
         frame.totalAbsorbBar:SetTexture("Interface\\RaidFrame\\Shield-Fill")
+        frame.totalAbsorbBar:Hide()
     end
 
     if frame.totalAbsorbOverlayBar then
@@ -283,7 +282,7 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
         frame.overAbsorbGlowBar:SetPoint("BOTTOMLEFT", frame.healthBar, "BOTTOMRIGHT", -7, 0)
         frame.overAbsorbGlowBar:SetPoint("TOPLEFT", frame.healthBar, "TOPRIGHT", -7, 0)
         frame.overAbsorbGlowBar:SetWidth(16)
-        frame.overAbsorbGlowBar:SetAlpha(0)
+        frame.overAbsorbGlowBar:Hide()
     end
 
     if frame.overHealAbsorbGlowBar then
@@ -293,16 +292,77 @@ local function CompactUnitFrame_Initialize(frame, myHealPredictionBar, otherHeal
         frame.overHealAbsorbGlowBar:SetPoint("BOTTOMRIGHT", frame.healthBar, "BOTTOMLEFT", 7, 0)
         frame.overHealAbsorbGlowBar:SetPoint("TOPRIGHT", frame.healthBar, "TOPLEFT", 7, 0)
         frame.overHealAbsorbGlowBar:SetWidth(16)
-        frame.overHealAbsorbGlowBar:SetAlpha(0)
+        frame.overHealAbsorbGlowBar:Hide()
+    end
+
+    if Precognito.db.profile.CUFOvershield then
+        local absorbBar = frame.totalAbsorbBar;
+        if not absorbBar or absorbBar:IsForbidden() then
+            return
+        end
+
+        local absorbOverlay = frame.totalAbsorbOverlayBar;
+        if not absorbOverlay or absorbOverlay:IsForbidden() then
+            return
+        end
+
+        local healthBar = frame.healthBar;
+        if not healthBar or healthBar:IsForbidden() then
+            return
+        end
+
+        absorbOverlay:SetParent(healthBar)
+        absorbOverlay:ClearAllPoints()
+        absorbOverlay:SetDrawLayer("OVERLAY")
+
+        local absorbGlow = frame.overAbsorbGlowBar;
+        if absorbGlow and not absorbGlow:IsForbidden() then
+            absorbGlow:ClearAllPoints()
+            absorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", -5, 0);
+            absorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", -5, 0);
+            absorbGlow:SetAlpha(0.6);
+            absorbGlow:SetDrawLayer("OVERLAY")
+        end
     end
 
     if Precognito.db.profile.CUFAbsorb then
-        CompactUnitFrame_RegisterCallback(frame)
+        CompactUnitFrame_RegisterCallback(frame:GetParent())
     end
 
-    --CompactUnitFrame_UpdateAll(frame)
+    CompactUnitFrame_UpdateHealPrediction(frame)
+end
 
-    frame.Ready = true
+local function createPredictFrame(frame, unit)
+    if (not storedFrames[frame] and UnitExists(unit)) then
+        local name = frame:GetName()
+        local predictFrame = CreateFrame("StatusBar", name .. "PredictFrame", frame, "CompactUnitFrameTemplate2")
+        predictFrame:SetAllPoints(frame)
+        predictFrame:SetFrameLevel(frame:GetFrameLevel())
+        local prefix = predictFrame:GetName()
+        local healthBar = frame.healthBar ~= nil and frame.healthBar or frame.healthbar
+        storedFrames[frame] = predictFrame
+        storedFrames[frame].healthBar = healthBar
+        storedFrames[frame].unit = unit
+
+        CompactUnitFrame_Initialize(storedFrames[frame], _G[prefix .. "MyHealPredictionBars"], _G[prefix .. "OtherHealPredictionBar"],
+                _G[prefix .. "TotalAbsorbBar"], _G[prefix .. "TotalAbsorbOverlay"],
+                _G[prefix .. "OverAbsorbGlow"], _G[prefix .. "OverHealAbsorbGlow"],
+                _G[prefix .. "MyHealAbsorb"], _G[prefix .. "MyHealAbsorbLeftShadow"],
+                _G[prefix .. "MyHealAbsorbRightShadow"])
+    end
+end
+
+local function CUF_SetUnit(frame)
+    if not frame or frame:IsForbidden() or not frame:GetName() or not frame.unit or strfind(frame.unit, "nameplate") then
+        return
+    end
+
+    local unit = frame.displayedUnit ~= nil and frame.displayedUnit or frame.unit
+    if storedFrames[frame] and storedFrames[frame].unit ~= unit then
+        storedFrames[frame].unit = unit
+    else
+        createPredictFrame(frame, unit)
+    end
 end
 
 local function CUF_UpdateEvent(frame)
@@ -318,76 +378,24 @@ local function CUF_UpdateEvent(frame)
     frame:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit, displayedUnit)
 end
 
-local cacheFrame = {}
-
-local function CUF_SetUnit(frame, unit)
-    if not frame or frame:IsForbidden() or frame.inited or not unit then
-        return
-    end
-
-    if strfind(unit, "nameplate") then
-        return
-    end
-
-    if InCombatLockdown() then
-        if not cacheFrame[frame] then
-            cacheFrame[frame] = frame
-        end
-        C_Timer.After(20, function()
-            -- is this even a good idea?
-            local retry = cacheFrame[frame]
-            CUF_SetUnit(retry)
-        end)
-        return
-    end
-
-    if cacheFrame[frame] then
-        cacheFrame[frame] = nil
-    end
-
-    if not frame.myHealPredictionBar then
-        frame.predict = CreateFrame("Frame", nil, frame, "CompactUnitFrameTemplate2")
-
-        local prefix = frame:GetName()
-        if smatch(prefix, "(CompactRaidFrame)%d*") then
-            frame.predict:SetFrameLevel(3)
-        else
-            frame.predict:SetFrameLevel(2)
-        end
-
-        CompactUnitFrame_Initialize(frame, _G[prefix .. "MyHealPredictionBars"], _G[prefix .. "OtherHealPredictionBar"],
-                _G[prefix .. "TotalAbsorbBar"], _G[prefix .. "TotalAbsorbOverlay"],
-                _G[prefix .. "OverAbsorbGlow"], _G[prefix .. "OverHealAbsorbGlow"],
-                _G[prefix .. "MyHealAbsorb"], _G[prefix .. "MyHealAbsorbLeftShadow"],
-                _G[prefix .. "MyHealAbsorbRightShadow"])
-
-        CompactUnitFrame_UpdateHealPrediction(frame)
-
-        frame.inited = true
-    end
-end
-
 local function CUF_Event(self, event, ...)
     if not self or self:IsForbidden() or not self:GetName() then
         return
     end
 
-    local arg1 = ...
-    local unit = arg1 == self.unit or arg1 == self.displayedUnit
+    local frame = storedFrames[self]
 
-    if unit and not strfind(self.displayedUnit, "nameplate") then
+    if frame and not strfind(self.displayedUnit, "nameplate") then
         if (event == "UNIT_MAXHEALTH") then
-            CompactUnitFrame_UpdateHealPrediction(self)
+            CompactUnitFrame_UpdateHealPrediction(frame)
         elseif (event == "UNIT_HEALTH") then
-            CompactUnitFrame_UpdateHealPrediction(self)
+            CompactUnitFrame_UpdateHealPrediction(frame)
         elseif (event == "UNIT_HEAL_ABSORB_AMOUNT_CHANGED") then
-            CompactUnitFrame_UpdateHealPrediction(self)
+            CompactUnitFrame_UpdateHealPrediction(frame)
         elseif (event == "UNIT_HEAL_PREDICTION") then
-            CompactUnitFrame_UpdateHealPrediction(self)
+            CompactUnitFrame_UpdateHealPrediction(frame)
         elseif (event == "PLAYER_ENTERING_WORLD") then
-            if UnitExists(unit) then
-                CompactUnitFrame_UpdateHealPrediction(self)
-            end
+            CompactUnitFrame_UpdateHealPrediction(frame)
         end
     end
 end
@@ -396,43 +404,4 @@ function Precognito:CUFInit()
     hooksecurefunc("CompactUnitFrame_SetUnit", CUF_SetUnit)
     hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", CUF_UpdateEvent)
     hooksecurefunc("CompactUnitFrame_OnEvent", CUF_Event)
-    hooksecurefunc("CompactUnitFrame_UpdateAll", function(self)
-        if UnitExists(self.displayedUnit) then
-            if not InCombatLockdown() then
-                CompactUnitFrame_UpdateHealPrediction(self)
-            end
-            if Precognito.db.profile.CUFOvershield then
-                local absorbBar = self.totalAbsorb;
-                if not absorbBar or absorbBar:IsForbidden() then
-                    return
-                end
-
-                local absorbOverlay = self.totalAbsorbOverlay;
-                if not absorbOverlay or absorbOverlay:IsForbidden() then
-                    return
-                end
-
-                local healthBar = self.healthBar;
-                if not healthBar or healthBar:IsForbidden() then
-                    return
-                end
-
-                absorbOverlay:SetParent(healthBar)
-                absorbOverlay:ClearAllPoints()
-                absorbOverlay:SetDrawLayer("OVERLAY")
-
-                local absorbGlow = self.overAbsorbGlow;
-                if absorbGlow and not absorbGlow:IsForbidden() then
-                    absorbGlow:ClearAllPoints()
-                    absorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", -5, 0);
-                    absorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", -5, 0);
-                    absorbGlow:SetAlpha(0.6);
-                end
-            end
-        end
-    end)
 end
-
-
-
-

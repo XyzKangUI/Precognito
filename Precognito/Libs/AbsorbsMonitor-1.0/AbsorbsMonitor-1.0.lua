@@ -1046,7 +1046,7 @@ end
 -- Due to be removed in 4.0
 function AM_Events.ZONE_CHANGED_NEW_AREA()
     if (UnitInBattleground("player")) then
-        ZONE_MODIFIER = 1.17;
+        ZONE_MODIFIER = 0.9;
     elseif (IsActiveBattlefieldArena()) then
         ZONE_MODIFIER = 0.9;
     elseif (GetRealZoneText() == "Wintergrasp") then
