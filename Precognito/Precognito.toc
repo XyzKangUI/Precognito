@@ -1,12 +1,9 @@
-## Interface: 30403
+## Interface: 40400, 40401, 40402, 40403, 40404, 40405
 ## Title: Precognito
+## Version: 3.1
 ## Author: Xyz
-## Notes: discord.gg/CtxPasSQnQ
-## Version: 2.6
-## SavedVariables: PrecognitoDB
+## SavedVariablesPerCharacter: PrecognitoDB
 
-libs.xml
-Options.lua
-API\BuilderSpenderFrame.xml
-Frames\UnitFrame.xml
-Frames\CompactUnitFrame.xml
+API/BuilderSpenderFrame.xml
+API/AbsorbAPI.lua
+Precognito.lua
