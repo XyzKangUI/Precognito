@@ -1,5 +1,5 @@
 local _, Precog = ...
-local activeAuras = {}
+local activeAuras, activeNecro = {}, {}
 local UnitGUID, blockGUID = UnitGUID, blockGUID
 local pairs, next = pairs, next
 local C_UnitAuras, C_Timer = C_UnitAuras, C_Timer
@@ -100,6 +100,10 @@ local function UnitAuras(unit, info)
         activeAuras[guid] = {}
     end
 
+    if not activeNecro[guid] then
+        activeNecro[guid] = {}
+    end
+
     local triggerEvent = false
 
     if info.addedAuras then
@@ -112,6 +116,9 @@ local function UnitAuras(unit, info)
                 local absorbValue = UnitCreatureType(unit) == "Totem" and scValues[UnitLevel(unit)] or scValues[UnitLevel(unit)] * 4
                 activeAuras[guid][aura.auraInstanceID] = { spellId = aura.spellId, amount = absorbValue or 0 }
                 triggerEvent = true
+            elseif aura and aura.spellId == 73975 then
+                activeNecro[guid][aura.auraInstanceID] = {spellId = 73975, amount = aura.points[1] or 0 }
+                triggerEvent = true
             end
         end
     end
@@ -123,6 +130,9 @@ local function UnitAuras(unit, info)
                 local value = aura.points[1] or 0
                 activeAuras[guid][aura.auraInstanceID] = { spellId = aura.spellId, amount = value }
                 triggerEvent = true
+            elseif aura and aura.spellId == 73975 then
+                activeNecro[guid][aura.auraInstanceID] = {spellId = 73975, amount = aura.points[1] or 0 }
+                triggerEvent = true
             end
         end
     end
@@ -131,6 +141,9 @@ local function UnitAuras(unit, info)
         for _, auraInstanceID in pairs(info.removedAuraInstanceIDs) do
             if auraInstanceID and activeAuras[guid][auraInstanceID] then
                 activeAuras[guid][auraInstanceID] = nil
+                triggerEvent = true
+            elseif auraInstanceID and activeNecro[guid][auraInstanceID] then
+                activeNecro[guid][auraInstanceID] = nil
                 triggerEvent = true
             end
         end
@@ -205,6 +218,29 @@ function Precog.UnitGetTotalAbsorbs(unit)
     end
 
     activeAuras[guid] = validAuras
+    return totalAbsorb
+end
+
+function Precog.NecroAbsorb(unit)
+    local guid = unit and UnitGUID(unit)
+    if not guid or not activeNecro[guid] then
+        return 0
+    end
+
+    local totalAbsorb = 0
+    local validAuras = {}
+
+    for auraInstanceID, auraData in pairs(activeNecro[guid]) do
+        local aura = C_UnitAuras.GetAuraDataByAuraInstanceID(unit, auraInstanceID)
+        if aura then
+            totalAbsorb = totalAbsorb + auraData.amount
+            validAuras[auraInstanceID] = auraData
+        else
+            activeNecro[guid][auraInstanceID] = nil
+        end
+    end
+
+    activeNecro[guid] = validAuras
     return totalAbsorb
 end
 

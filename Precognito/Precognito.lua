@@ -5,12 +5,14 @@ local whitelist = {
     [FocusFrame] = true
 }
 local UnitIsUnit, UnitGUID = UnitIsUnit, UnitGUID
+local min, max = math.min, math.max
+local strfind = string.find
 
 --- Raid Frames
 local MAX_INCOMING_HEAL_OVERFLOW = 1.05
-hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", function(frame)
+local function CompactUnitFrame_UpdateHealPrediction(frame)
     local unit = frame.displayedUnit or frame.unit
-    if not frame or not unit or string.find(unit, "nameplate") or not frame:IsVisible() then
+    if not frame or not unit or strfind(unit, "nameplate") or not frame:IsVisible() then
         return
     end
 
@@ -32,34 +34,16 @@ hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", function(frame)
 
     local myIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit, "player") or 0
     local allIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit) or 0
-    local totalAbsorb = 0
+    local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.displayedUnit) or 0
+    local necroAmount = 0
 
-    local myCurrentHealAbsorb = 0
-    if (precogFrame.myHealAbsorb) then
-        totalAbsorb = Precog.UnitGetTotalAbsorbs and Precog.UnitGetTotalAbsorbs(frame.unit) or 0
-        myCurrentHealAbsorb = 0
-
-        --We don't fill outside the health bar with healAbsorbs.  Instead, an overHealAbsorbGlow is shown.
-        if (health < myCurrentHealAbsorb) then
-            precogFrame.overHealAbsorbGlow:Show()
-            myCurrentHealAbsorb = health
-        else
-            precogFrame.overHealAbsorbGlow:Hide()
-        end
-    end
-
-    --We don't fill outside the health bar with healAbsorbs.  Instead, an overHealAbsorbGlow is shown.
-    local myCurrentHealAbsorb = 0
-    if (health < myCurrentHealAbsorb) then
-        precogFrame.overHealAbsorbGlow:Show()
-        myCurrentHealAbsorb = health
-    else
-        precogFrame.overHealAbsorbGlow:Hide()
+    if precogFrame.NecroAbsorbBar and Precog.db.CUFNecro then
+        necroAmount = Precog.NecroAbsorb(frame.unit) or 0
     end
 
     --See how far we're going over the health bar and make sure we don't go too far out of the frame.
-    if (health - myCurrentHealAbsorb + allIncomingHeal > maxHealth * MAX_INCOMING_HEAL_OVERFLOW) then
-        allIncomingHeal = maxHealth * MAX_INCOMING_HEAL_OVERFLOW - health + myCurrentHealAbsorb
+    if (health + allIncomingHeal > maxHealth * MAX_INCOMING_HEAL_OVERFLOW) then
+        allIncomingHeal = maxHealth * MAX_INCOMING_HEAL_OVERFLOW - health
     end
 
     local otherIncomingHeal = 0
@@ -73,13 +57,13 @@ hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", function(frame)
 
     local overAbsorb = false
     --We don't fill outside the the health bar with absorbs.  Instead, an overAbsorbGlow is shown.
-    if ((health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth and Precog.db["CUFPredicts"]) or health + totalAbsorb >= maxHealth) then
+    if (((health + allIncomingHeal + totalAbsorb - necroAmount) >= maxHealth and Precog.db["CUFPredicts"]) or health + totalAbsorb >= maxHealth) then
         if (totalAbsorb > 0) then
             overAbsorb = true
         end
 
-        if (allIncomingHeal > myCurrentHealAbsorb) and Precog.db["CUFPredicts"] then
-            totalAbsorb = max(0, maxHealth - (health - myCurrentHealAbsorb + allIncomingHeal))
+        if (allIncomingHeal - necroAmount > 0) and Precog.db["CUFPredicts"] then
+            totalAbsorb = max(0, maxHealth - (health + allIncomingHeal - necroAmount))
         else
             totalAbsorb = max(0, maxHealth - health)
         end
@@ -95,62 +79,34 @@ hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", function(frame)
 
     local healthTexture = frame.healthBar:GetStatusBarTexture()
 
-    local myCurrentHealAbsorbPercent = myCurrentHealAbsorb / maxHealth
-
-    local healAbsorbTexture = nil
-
-    --If allIncomingHeal is greater than myCurrentHealAbsorb, then the current
-    --heal absorb will be completely overlayed by the incoming heals so we don't show it.
-    if (myCurrentHealAbsorb > allIncomingHeal) then
-        local shownHealAbsorb = myCurrentHealAbsorb - allIncomingHeal
-        local shownHealAbsorbPercent = shownHealAbsorb / maxHealth
-        healAbsorbTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, precogFrame.myHealAbsorb, shownHealAbsorb, -shownHealAbsorbPercent)
-
-        --If there are incoming heals the left shadow would be overlayed by the incoming heals
-        --so it isn't shown.
-        if (allIncomingHeal > 0) then
-            precogFrame.myHealAbsorbLeftShadow:Hide()
-        else
-            precogFrame.myHealAbsorbLeftShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPLEFT", 0, 0)
-            precogFrame.myHealAbsorbLeftShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMLEFT", 0, 0)
-            precogFrame.myHealAbsorbLeftShadow:Show()
-        end
-
-        -- The right shadow is only shown if there are absorbs on the health bar.
-        if (totalAbsorb > 0) then
-            precogFrame.myHealAbsorbRightShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPRIGHT", -8, 0)
-            precogFrame.myHealAbsorbRightShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMRIGHT", -8, 0)
-            precogFrame.myHealAbsorbRightShadow:Show()
-        else
-            precogFrame.myHealAbsorbRightShadow:Hide()
-        end
-    else
-        precogFrame.myHealAbsorb:Hide()
-        precogFrame.myHealAbsorbRightShadow:Hide()
-        precogFrame.myHealAbsorbLeftShadow:Hide()
-    end
-
     --Show myIncomingHeal on the health bar.
     local incomingHealsTexture
     if Precog.db["CUFPredicts"] then
-        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, precogFrame.myHealPrediction, myIncomingHeal, -myCurrentHealAbsorbPercent)
+        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, precogFrame.myHealPrediction, myIncomingHeal - necroAmount)
         --Append otherIncomingHeal on the health bar.
-        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, precogFrame.otherHealPrediction, otherIncomingHeal);
+        incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, precogFrame.otherHealPrediction, otherIncomingHeal - necroAmount);
     else
         incomingHealsTexture = healthTexture
     end
 
     --Append absorbs to the correct section of the health bar.
-    local appendTexture = nil
-    if (healAbsorbTexture) then
-        --If there is a healAbsorb part shown, append the absorb to the end of that.
-        appendTexture = healAbsorbTexture
-    else
-        --Otherwise, append the absorb to the end of the the incomingHeals part
-        appendTexture = incomingHealsTexture
-    end
+    local appendTexture = incomingHealsTexture
+
     if Precog.db["CUFAbsorbs"] then
+        if necroAmount >= allIncomingHeal then
+            appendTexture = healthTexture
+        end
         CompactUnitFrameUtil_UpdateFillBar(frame, appendTexture, precogFrame.totalAbsorb, totalAbsorb)
+    end
+
+    if Precog.db.CUFNecro then
+        local necrobar = precogFrame.NecroAbsorbBar
+        if necrobar then
+            if allIncomingHeal > 0 then
+                necroAmount = max(necroAmount - allIncomingHeal, 0)
+            end
+            CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, necrobar, -necroAmount)
+        end
     end
 
     if Precog.db["CUFOvershield"] then
@@ -196,7 +152,7 @@ hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", function(frame)
             absorbOverlay:Show()
         end
     end
-end)
+end
 
 local function SetupRaidFrames(frame)
     local unit = frame.unit or frame.displayedUnit
@@ -209,26 +165,15 @@ local function SetupRaidFrames(frame)
         local precogFrame = CreateFrame("StatusBar", prefix .. "PrecogFrame", frame)
         precogFrame:SetAllPoints(frame)
         precogFrame:SetFrameLevel(frame:GetFrameLevel())
-        precogFrame.myHealPrediction = precogFrame:CreateTexture(prefix .. "MyHealPredictionBar", "BORDER", "MyHealPredictionBarTemplate", 5)
-        precogFrame.otherHealPrediction = precogFrame:CreateTexture(prefix .. "OtherPredictionBar", "BORDER", "OtherHealPredictionBarTemplate", 5)
-        precogFrame.myHealAbsorb = precogFrame:CreateTexture(prefix .. "HealAbsorbBar", "ARTWORK", "HealAbsorbBarTemplate", 1)
-        precogFrame.myHealAbsorbLeftShadow = precogFrame:CreateTexture(prefix .. "HealAbsorbBarLeftShadow", "ARTWORK", "HealAbsorbBarLeftShadowTemplate", 1)
-        precogFrame.myHealAbsorbRightShadow = precogFrame:CreateTexture(prefix .. "HealAbsorbBarRightShadow", "ARTWORK", "HealAbsorbBarRightShadowTemplate", 1)
+        precogFrame.myHealPrediction = precogFrame:CreateTexture(prefix .. "MyHealPredictionBar", "ARTWORK", "MyHealPredictionBarTemplate", 1)
+        precogFrame.otherHealPrediction = precogFrame:CreateTexture(prefix .. "OtherPredictionBar", "ARTWORK", "OtherHealPredictionBarTemplate", 1)
         precogFrame.totalAbsorb = precogFrame:CreateTexture(prefix .. "TotalAbsorbBar", "BORDER", "TotalAbsorbBarTemplate", 5)
         precogFrame.totalAbsorbOverlay = precogFrame:CreateTexture(prefix .. "TotalAbsorbBarOverlay", "BORDER", "TotalAbsorbBarOverlayTemplate", 6)
         precogFrame.overAbsorbGlow = precogFrame:CreateTexture(prefix .. "OverAbsorbGlow", "ARTWORK", "OverAbsorbGlowTemplate", 2)
-        precogFrame.overHealAbsorbGlow = precogFrame:CreateTexture(prefix .. "OverHealAbsorbGlow", "ARTWORK", "OverHealAbsorbGlowTemplate", 2)
 
         precogFrame.myHealPrediction:ClearAllPoints()
         precogFrame.myHealPrediction:SetColorTexture(1, 1, 1)
         precogFrame.myHealPrediction:SetGradient("VERTICAL", CreateColor(8 / 255, 93 / 255, 72 / 255, 1), CreateColor(11 / 255, 136 / 255, 105 / 255, 1))
-        precogFrame.myHealAbsorb:ClearAllPoints()
-        precogFrame.myHealAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
-        precogFrame.myHealAbsorb:Hide()
-        precogFrame.myHealAbsorbLeftShadow:ClearAllPoints()
-        precogFrame.myHealAbsorbLeftShadow:Hide()
-        precogFrame.myHealAbsorbRightShadow:ClearAllPoints()
-        precogFrame.myHealAbsorbRightShadow:Hide()
         precogFrame.otherHealPrediction:ClearAllPoints()
         precogFrame.otherHealPrediction:SetColorTexture(1, 1, 1)
         precogFrame.otherHealPrediction:SetGradient("VERTICAL", CreateColor(11 / 255, 53 / 255, 43 / 255, 1), CreateColor(21 / 255, 89 / 255, 72 / 255, 1))
@@ -245,13 +190,14 @@ local function SetupRaidFrames(frame)
         precogFrame.overAbsorbGlow:SetPoint("TOPLEFT", frame.healthBar, "TOPRIGHT", -7, 0)
         precogFrame.overAbsorbGlow:SetWidth(16)
         precogFrame.overAbsorbGlow:Hide()
-        precogFrame.overHealAbsorbGlow:ClearAllPoints()
-        precogFrame.overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-        precogFrame.overHealAbsorbGlow:SetBlendMode("ADD")
-        precogFrame.overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame.healthBar, "BOTTOMLEFT", 7, 0)
-        precogFrame.overHealAbsorbGlow:SetPoint("TOPRIGHT", frame.healthBar, "TOPLEFT", 7, 0)
-        precogFrame.overHealAbsorbGlow:SetWidth(16)
-        precogFrame.overHealAbsorbGlow:Hide()
+
+        local NecroAbsorbBar
+        if Precog.db.CUFNecro then
+            precogFrame.NecroAbsorbBar = precogFrame:CreateTexture(prefix .. "NecroAbsorbBar", "ARTWORK", "MyHealPredictionBarTemplate", 3)
+            precogFrame.NecroAbsorbBar:ClearAllPoints()
+            precogFrame.NecroAbsorbBar:SetColorTexture(1, 1, 1)
+            precogFrame.NecroAbsorbBar:SetGradient("VERTICAL", CreateColor(240 / 255, 105 / 255, 105 / 255, 0.7), CreateColor(245 / 255, 56 / 255, 56 / 255, 0.9))
+        end
 
         if Precog.db["CUFOvershield"] then
             local absorbBar = precogFrame.totalAbsorb
@@ -292,27 +238,154 @@ hooksecurefunc("CompactUnitFrame_SetUnit", SetupRaidFrames)
 
 --- UnitFrame
 
-local function TotalShim(unit, ...)
-    return 0
-end
+local MAX_INCOMING_HEAL_OVERFLOW = 1.0;
+local function UnitFrameHealPredictionBars_Update(frame)
+    if (not frame.myHealPredictionBar and not frame.otherHealPredictionBar and not frame.healAbsorbBars and not frame.totalAbsorbBars) then
+        return ;
+    end
 
-setfenv(UnitFrameHealPredictionBars_Update, setmetatable({}, {
-    __index = function(t, k)
-        if k == "UnitGetTotalAbsorbs" then
-            if Precog.db.absorbTrack then
-                return Precog.UnitGetTotalAbsorbs
-            else
-                return TotalShim
-            end
-        elseif k == "UnitGetTotalHealAbsorbs" then
-            return TotalShim
-        elseif k == "UnitGetIncomingHeals" and not Precog.db.healPredict then
-            return TotalShim
+    local _, maxHealth = frame.healthbar:GetMinMaxValues();
+    local health = frame.healthbar:GetValue();
+    if (maxHealth <= 0) then
+        return ;
+    end
+
+    local myIncomingHeal = UnitGetIncomingHeals(frame.unit, "player") or 0;
+    local allIncomingHeal = UnitGetIncomingHeals(frame.unit) or 0;
+    local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.unit) or 0;
+    local necroAmount = 0
+
+    if frame.necroAbsorbBar and Precog.db.necroTrack then
+        necroAmount = Precog.NecroAbsorb(frame.unit) or 0
+    end
+
+    --See how far we're going over the health bar and make sure we don't go too far out of the frame.
+    if (health + allIncomingHeal > maxHealth * MAX_INCOMING_HEAL_OVERFLOW) then
+        allIncomingHeal = maxHealth * MAX_INCOMING_HEAL_OVERFLOW - health;
+    end
+
+    local otherIncomingHeal = 0;
+
+    --Split up incoming heals.
+    if (allIncomingHeal >= myIncomingHeal) then
+        otherIncomingHeal = allIncomingHeal - myIncomingHeal;
+    else
+        myIncomingHeal = allIncomingHeal;
+    end
+
+    --We don't fill outside the the health bar with absorbs.  Instead, an overAbsorbGlow is shown.
+    local overAbsorb = false;
+    if (health + allIncomingHeal + totalAbsorb - necroAmount >= maxHealth and Precog.db.healPredict) or (health + totalAbsorb >= maxHealth) then
+        if (totalAbsorb > 0) then
+            overAbsorb = true
+        end
+
+        if ((allIncomingHeal - necroAmount) > 0) and Precog.db.healPredict then
+            totalAbsorb = max(0, maxHealth - (health + allIncomingHeal - necroAmount));
         else
-            return _G[k]
+            totalAbsorb = max(0, maxHealth - health);
         end
     end
-}))
+
+    if (frame.overAbsorbGlow) then
+        if (overAbsorb) and Precog.db.absorbTrack then
+            if not frame.overAbsorbGlow:IsShown() then
+                frame.overAbsorbGlow:Show()
+            end
+        else
+            if frame.overAbsorbGlow:IsShown() then
+                frame.overAbsorbGlow:Hide();
+            end
+        end
+    end
+
+    local healthTexture = frame.healthbar:GetStatusBarTexture();
+
+    --Show myIncomingHeal on the health bar.
+    local incomingHealTexture;
+    if Precog.db.healPredict then
+        if (frame.myHealPredictionBar and (frame.myHealPredictionBar.UpdateFillPosition ~= nil)) then
+            incomingHealTexture = frame.myHealPredictionBar:UpdateFillPosition(healthTexture, myIncomingHeal - necroAmount);
+        end
+
+        local otherHealLeftTexture = (myIncomingHeal > 0) and incomingHealTexture or healthTexture;
+
+        --Append otherIncomingHeal on the health bar
+        if (frame.otherHealPredictionBar and (frame.otherHealPredictionBar.UpdateFillPosition ~= nil)) then
+            incomingHealTexture = frame.otherHealPredictionBar:UpdateFillPosition(otherHealLeftTexture, otherIncomingHeal - necroAmount, 0);
+        end
+    else
+        incomingHealTexture = healthTexture
+    end
+
+    --Append absorbs to the correct section of the health bar.
+    local appendTexture = incomingHealTexture or healthTexture;
+    local absorbBar = frame.totalAbsorbBars
+
+    if absorbBar and absorbBar.UpdateFillPosition and Precog.db.absorbTrack then
+        if necroAmount >= allIncomingHeal then
+            appendTexture = healthTexture
+        end
+
+        absorbBar:UpdateFillPosition(appendTexture, totalAbsorb);
+    end
+
+    if Precog.db.Overshield then
+        if not absorbBar or absorbBar:IsForbidden() then
+            return
+        end
+
+        local absorbOverlay = absorbBar.TiledFillOverlay
+        if not absorbOverlay or absorbOverlay:IsForbidden() then
+            return
+        end
+
+        local healthBar = frame.healthbar
+        if not healthBar or healthBar:IsForbidden() then
+            return
+        end
+
+        local _, maxHealth = healthBar:GetMinMaxValues()
+        if maxHealth <= 0 then
+            return
+        end
+
+        local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.unit) or 0
+        if totalAbsorb > maxHealth then
+            totalAbsorb = maxHealth
+        end
+
+        if totalAbsorb > 0 then
+            if absorbBar:IsShown() then
+                absorbOverlay:SetPoint("TOPRIGHT", absorbBar.FillMask, "TOPRIGHT", 0, 0)
+                absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar.FillMask, "BOTTOMRIGHT", 0, 0)
+            else
+                absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0)
+                absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0)
+            end
+
+            local totalWidth, totalHeight = healthBar:GetSize()
+            local barSize = totalAbsorb / maxHealth * totalWidth
+
+            absorbOverlay:SetWidth(barSize)
+            absorbOverlay:SetTexCoord(0, min(max(barSize / absorbBar.tiledFillOverlaySize, 0), 1), 0, min(max(totalHeight / absorbBar.tiledFillOverlaySize, 0), 1))
+            absorbOverlay:Show()
+        else
+            absorbOverlay:Hide()
+        end
+    end
+
+    if Precog.db.necroTrack then
+        local necrobar = frame.necroAbsorbBar
+        if necrobar then
+            if allIncomingHeal > 0 then
+                necroAmount = max(necroAmount - allIncomingHeal, 0)
+            end
+            necrobar:UpdateFillPosition(healthTexture, -necroAmount)
+        end
+    end
+
+end
 
 local function UnitFrameHealthBar_OnUpdate_New(self)
     if (not self.disconnected and not self.lockValues) then
@@ -400,13 +473,21 @@ function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTime, en
     frame.myManaCostPredictionBar:UpdateFillPosition(manaBarTexture, cost);
 end
 
-local function UnitFrame_Initialize(self, totalAbsorbBar, overAbsorbGlow, overHealAbsorbGlow, healAbsorbBar, myManaCostPredictionBar)
+local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myManaCostPredictionBar, NecroAbsorbBar)
 
-    self.totalAbsorbBar = totalAbsorbBar
+    self.totalAbsorbBars = totalAbsorbBars
     self.overAbsorbGlow = overAbsorbGlow
-    self.overHealAbsorbGlow = overHealAbsorbGlow
-    self.healAbsorbBar = healAbsorbBar
     self.myManaCostPredictionBar = myManaCostPredictionBar
+    self.necroAbsorbBar = NecroAbsorbBar
+
+    if self.necroAbsorbBar then
+        self.necroAbsorbBar:Hide()
+    end
+
+    if not Precog.db.healPredict then
+        self.myHealPredictionBar:SetAlpha(0)
+        self.otherHealPredictionBar:SetAlpha(0)
+    end
 
     if (self.myManaCostPredictionBar) and self.unit == "player" then
         self:RegisterUnitEvent("UNIT_SPELLCAST_START", self.unit)
@@ -420,11 +501,6 @@ local function UnitFrame_Initialize(self, totalAbsorbBar, overAbsorbGlow, overHe
         self.overAbsorbGlow:ClearAllPoints();
         self.overAbsorbGlow:SetPoint("TOPLEFT", self.healthbar, "TOPRIGHT", -7, 0);
         self.overAbsorbGlow:SetPoint("BOTTOMLEFT", self.healthbar, "BOTTOMRIGHT", -7, 0);
-    end
-    if (self.overHealAbsorbGlow) then
-        self.overHealAbsorbGlow:ClearAllPoints();
-        self.overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", self.healthbar, "BOTTOMLEFT", 7, 0);
-        self.overHealAbsorbGlow:SetPoint("TOPRIGHT", self.healthbar, "TOPLEFT", 7, 0);
     end
 
     self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New)
@@ -488,26 +564,13 @@ local function OnInitialize(self)
     local prefix = self:GetName()
     local healthbar = self.healthBar or self.HealthBar
 
-    local HealAbsorbBar = CreateFrame("StatusBar", "$parentHealAbsorbBar", healthbar, "PlayerFrameBarSegmentTemplate, HealAbsorbBarTemplate")
-    HealAbsorbBar:SetFrameLevel(healthbar:GetFrameLevel() + 1)
-    HealAbsorbBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    HealAbsorbBar.fillColor = CreateColor(0.424, 0.651, 0.051, 1.000)
-    HealAbsorbBar.Fill:SetVertexColor(HealAbsorbBar.fillColor:GetRGBA())
-    HealAbsorbBar.Fill:SetDrawLayer("ARTWORK", 1)
-
-    if HealAbsorbBar.fillOverlays then
-        for _, overlay in ipairs(HealAbsorbBar.fillOverlays) do
-            overlay:SetDrawLayer("ARTWORK", 3)
-        end
-    end
-
-    local TotalAbsorbBar = CreateFrame("StatusBar", "$parentTotalAbsorbBar", healthbar, "TotalAbsorbBarTemplate")
+    local TotalAbsorbBar = CreateFrame("StatusBar", "$parentTotalAbsorbBars", healthbar, "TotalAbsorbBarTemplate")
     TotalAbsorbBar:SetFrameLevel(healthbar:GetFrameLevel() + 1)
     TotalAbsorbBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    TotalAbsorbBar.fillColor = CreateColor(1.000, 1.000, 1.000, 1.000)
-    TotalAbsorbBar.Fill:SetVertexColor(TotalAbsorbBar.fillColor:GetRGBA())
     TotalAbsorbBar.fillTexture = "Interface\\RaidFrame\\Shield-Fill"
     TotalAbsorbBar.Fill:SetTexture(TotalAbsorbBar.fillTexture)
+    TotalAbsorbBar.fillColor = CreateColor(1.000, 1.000, 1.000, 1.000)
+    TotalAbsorbBar.Fill:SetVertexColor(TotalAbsorbBar.fillColor:GetRGBA())
 
     if TotalAbsorbBar.fillOverlays then
         for _, overlay in ipairs(TotalAbsorbBar.fillOverlays) do
@@ -517,11 +580,11 @@ local function OnInitialize(self)
 
     local attachFrame = prefix ~= "PlayerFrame" and self.textureFrame or select(2, PlayerFrameTexture:GetPoint())
     local OverAbsorbGlow = attachFrame:CreateTexture("$parentOverAbsorbGlow", "OVERLAY", "OverAbsorbGlowTemplate", 5)
-    local OverHealAbsorbGlow = attachFrame:CreateTexture("$parentOverHealAbsorbGlow", "OVERLAY", "OverHealAbsorbGlowTemplate", 5)
 
     --- Temp fix
     if healthbar and healthbar.MyHealPredictionBar then
         healthbar.MyHealPredictionBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        healthbar.MyHealPredictionBar.Fill:SetVertexColor(34 / 255, 139 / 255, 34 / 255, 1)
     end
     if healthbar and healthbar.OtherHealPredictionBar then
         healthbar.OtherHealPredictionBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -534,12 +597,25 @@ local function OnInitialize(self)
         ManaPredictionBar:SetFrameLevel(self.manabar:GetFrameLevel() + 1)
         ManaPredictionBar.fillTexture = "Interface\\TargetingFrame\\UI-StatusBar"
         ManaPredictionBar.Fill:SetTexture(ManaPredictionBar.fillTexture)
-        ManaPredictionBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        ManaPredictionBar.FillMask:SetTexture(ManaPredictionBar.fillTexture, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
         ManaPredictionBar.fillColor = CreateColor(0, 0.447, 1.000, 1.000)
         ManaPredictionBar.Fill:SetVertexColor(ManaPredictionBar.fillColor:GetRGBA())
     end
 
-    UnitFrame_Initialize(self, TotalAbsorbBar, OverAbsorbGlow, OverHealAbsorbGlow, HealAbsorbBar, ManaPredictionBar)
+    local NecroAbsorbBar
+    if Precog.db.necroTrack then
+        NecroAbsorbBar = CreateFrame("StatusBar", "$parentTotalAbsorbBar", healthbar, "PlayerFrameBarSegmentTemplate, MyHealPredictionBarTemplate")
+        NecroAbsorbBar:SetFrameLevel(healthbar:GetFrameLevel() + 3)
+        NecroAbsorbBar.fillTexture = "Interface\\TargetingFrame\\UI-StatusBar"
+        NecroAbsorbBar.FillMask:SetTexture(NecroAbsorbBar.fillTexture, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        NecroAbsorbBar.Fill:SetTexture(NecroAbsorbBar.fillTexture)
+        NecroAbsorbBar.FillMask:SetDrawLayer("OVERLAY", 7)
+        NecroAbsorbBar.fillColor = CreateColor(240 / 255, 105 / 255, 105 / 255, 1)
+        --NecroAbsorbBar.fillColor = CreateColor(144/255, 77/255, 232/255, 1)
+        NecroAbsorbBar.Fill:SetVertexColor(NecroAbsorbBar.fillColor:GetRGBA())
+    end
+
+    UnitFrame_Initialize(self, TotalAbsorbBar, OverAbsorbGlow, ManaPredictionBar, NecroAbsorbBar)
 end
 
 --- Some Settings
@@ -557,15 +633,31 @@ local function CheckBtn(title, desc, panel, onClick)
 end
 
 local options = {
-    CUFPredicts = { "Raid Frame Incoming Heals", true },
-    CUFAbsorbs = { "Raid Frame Absorbs", true },
-    CUFOvershield = { "Raid Frame Overshield", false },
+    CUFPredicts = { "Raidframe Incoming Heals", true },
+    CUFAbsorbs = { "Raidframe Absorbs", true },
+    CUFOvershield = { "Raidframe Overshield", false },
+    CUFNecro = { "Raidframe Necrotic Strike Absorbs", false },
     healPredict = { "UnitFrame Incoming Heals", true },
     absorbTrack = { "UnitFrame Absorbs", true },
-    animHealth = { "Player Animated Health", false },
-    animMana = { "Player Mana Cost Prediction", true },
-    Feedback = { "Player Power Animation", true },
+    necroTrack = { "UnitFrame Necrotic Strike Absorbs", false },
+    animMana = { "PlayerFrame Mana-cost Prediction", true },
+    animHealth = { "PlayerFrame Animated Health", false },
+    Feedback = { "PlayerFrame Animated Full Power", true },
     Overshield = { "UnitFrame Overshield", false },
+}
+
+local displayOrder = {
+    "CUFPredicts",
+    "CUFAbsorbs",
+    "CUFOvershield",
+    "CUFNecro",
+    "healPredict",
+    "absorbTrack",
+    "Overshield",
+    "necroTrack",
+    "animMana",
+    "animHealth",
+    "Feedback",
 }
 
 local function onClick(key)
@@ -586,9 +678,10 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
             PrecognitoDB = {}
         end
 
-        for option, value in pairs(options) do
-            if PrecognitoDB[option] == nil then
-                PrecognitoDB[option] = value[2]
+        for _, key in ipairs(displayOrder) do
+            local value = options[key]
+            if PrecognitoDB[key] == nil then
+                PrecognitoDB[key] = value[2]
             end
         end
 
@@ -599,7 +692,8 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
         Settings.RegisterAddOnCategory(Settings.RegisterCanvasLayoutCategory(panel, panel.name))
 
         local yOffset = -10
-        for key, option in pairs(options) do
+        for _, key in pairs(displayOrder) do
+            local option = options[key]
             local title, _ = unpack(option)
             local btn = CheckBtn(title, title, panel, onClick(key))
             btn:SetPoint("TOPLEFT", 10, yOffset)
@@ -621,12 +715,12 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
             end
 
             if Precog.db.Overshield then
-                local absorbBar = self.totalAbsorbBar
+                local absorbBar = self.totalAbsorbBars
                 if not absorbBar or absorbBar:IsForbidden() then
                     return
                 end
 
-                local absorbOverlay = self.totalAbsorbBar.TiledFillOverlay
+                local absorbOverlay = self.totalAbsorbBars.TiledFillOverlay
                 if not absorbOverlay or absorbOverlay:IsForbidden() then
                     return
                 end
@@ -665,56 +759,11 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
             end)
         end
 
-        if Precog.db.Overshield then
-            hooksecurefunc("UnitFrameHealPredictionBars_Update", function(frame)
-                local absorbBar = frame.totalAbsorbBar
-                if not absorbBar or absorbBar:IsForbidden() then
-                    return
-                end
+        -- #3
+        hooksecurefunc("UnitFrameHealPredictionBars_Update", UnitFrameHealPredictionBars_Update)
 
-                local absorbOverlay = frame.totalAbsorbBar.TiledFillOverlay
-                if not absorbOverlay or absorbOverlay:IsForbidden() then
-                    return
-                end
-
-                local healthBar = frame.healthbar
-                if not healthBar or healthBar:IsForbidden() then
-                    return
-                end
-
-                local _, maxHealth = healthBar:GetMinMaxValues()
-                if maxHealth <= 0 then
-                    return
-                end
-
-                local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.unit) or 0
-                if totalAbsorb > maxHealth then
-                    totalAbsorb = maxHealth
-                end
-
-                if totalAbsorb > 0 then
-                    if absorbBar:IsShown() then
-                        absorbOverlay:SetParent(absorbBar)
-                        absorbOverlay:SetPoint("TOPRIGHT", absorbBar.FillMask, "TOPRIGHT", 0, 0)
-                        absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar.FillMask, "BOTTOMRIGHT", 0, 0)
-                    else
-                        absorbOverlay:SetParent(healthBar)
-                        absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0)
-                        absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0)
-                    end
-
-                    local totalWidth, totalHeight = healthBar:GetSize()
-                    local barSize = totalAbsorb / maxHealth * totalWidth
-
-                    absorbOverlay:SetWidth(barSize)
-                    absorbOverlay:SetTexCoord(0, min(max(barSize / absorbBar.tiledFillOverlaySize, 0), 1), 0, min(max(totalHeight / absorbBar.tiledFillOverlaySize, 0), 1))
-                    absorbOverlay:Show()
-                else
-                    absorbOverlay:Hide()
-                end
-            end)
-        end
-
+        -- #4
+        hooksecurefunc("CompactUnitFrame_UpdateHealPrediction", CompactUnitFrame_UpdateHealPrediction)
     elseif event == "PLAYER_TARGET_CHANGED" then
         UnitFrameHealPredictionBars_Update(TargetFrame)
     elseif event == "PLAYER_FOCUS_CHANGED" then
