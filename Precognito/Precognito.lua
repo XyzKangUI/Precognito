@@ -581,16 +581,6 @@ local function OnInitialize(self)
     local attachFrame = prefix ~= "PlayerFrame" and self.textureFrame or select(2, PlayerFrameTexture:GetPoint())
     local OverAbsorbGlow = attachFrame:CreateTexture("$parentOverAbsorbGlow", "OVERLAY", "OverAbsorbGlowTemplate", 5)
 
-    --- Temp fix
-    if healthbar and healthbar.MyHealPredictionBar then
-        healthbar.MyHealPredictionBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        healthbar.MyHealPredictionBar.Fill:SetVertexColor(34 / 255, 139 / 255, 34 / 255, 1)
-    end
-    if healthbar and healthbar.OtherHealPredictionBar then
-        healthbar.OtherHealPredictionBar.FillMask:SetTexture("Interface\\TargetingFrame\\UI-StatusBar", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    end
-    --- end
-
     local ManaPredictionBar
     if self == PlayerFrame then
         ManaPredictionBar = CreateFrame("StatusBar", "$parentManaCostPredictionBar", PlayerFrameManaBar, "ManaCostPredictionBarTemplate")
