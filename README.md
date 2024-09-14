@@ -11,6 +11,7 @@ The addon adds the following functions to Cataclysm Classic:
 
 - Incoming heals
 - Shield absorbs
+- Necrotic Strike absorb
 - Animated health and power
 - [Overshields](https://www.curseforge.com/wow/addons/overshields)
 
