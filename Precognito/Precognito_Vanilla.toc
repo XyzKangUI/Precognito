@@ -1,9 +1,9 @@
-## Interface: 40400, 40401, 40402, 40403, 40404, 40405
+## Interface: 10503, 10504, 10505, 10506, 10507, 10508
 ## Title: Precognito
 ## Version: 3.4
 ## Author: Xyz
 ## SavedVariablesPerCharacter: PrecognitoDB
 
 API/BuilderSpenderFrame.xml
-API/AbsorbAPI.lua
-Precognito.lua
+API/AbsorbAPIVanilla.lua
+PrecognitoVanilla.lua

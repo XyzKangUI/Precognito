@@ -150,7 +150,7 @@ local function UnitAuras(unit, info)
     end
 
     if triggerEvent then
-        EventRegistry:TriggerEvent("Precognito", unit)
+        EventRegistry:TriggerEvent("Precognito", guid)
     end
 end
 
