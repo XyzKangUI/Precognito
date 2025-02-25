@@ -7,11 +7,11 @@ I do not wish this to be distributed anywhere else.
 ***Notice: Do not use this addon in combination with either HealBarsClassic or ClassicHealPrediction***
 
 
-The addon adds the following functions to Cataclysm Classic:
+The addon adds the following functions to Cataclysm/SoD/ERA Classic:
 
 - Incoming heals
 - Shield absorbs
-- Necrotic Strike absorb
+- Necrotic Strike absorb (Cata only)
 - Animated health and power
 - [Overshields](https://www.curseforge.com/wow/addons/overshields)
 
