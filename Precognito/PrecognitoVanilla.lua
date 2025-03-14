@@ -21,19 +21,14 @@ function Precog.active(unit)
     if not unit and Precog then
         return
     end
-    
+
     return Precog.PrintActiveEffectsBySpell(UnitGUID(unit))
 end
 
 --- Raid Frames
 local MAX_INCOMING_HEAL_OVERFLOW = 1.05
 function CompactUnitFrame_UpdateHealPrediction(frame)
-    local unit = frame.displayedUnit or frame.unit
-    if not frame or not unit or strfind(unit, "nameplate") or not frame:IsVisible() then
-        return
-    end
-
-    if frame and not frame:GetName() then
+    if not frame or not frame:GetName() or not frame:IsVisible() then
         return
     end
 
@@ -159,11 +154,14 @@ local function SetupRaidFrames(frame)
         return
     end
 
-    local prefix = frame and frame:GetName()
-    if prefix and not _G[prefix .. "PrecogFrame"] then
-        local precogFrame = CreateFrame("StatusBar", prefix .. "PrecogFrame", frame)
+    local prefix = frame:GetName()
+    local precogFrame = _G[prefix .. "PrecogFrame"]
+
+    if not precogFrame then
+        precogFrame = CreateFrame("StatusBar", prefix .. "PrecogFrame", frame)
         precogFrame:SetAllPoints(frame)
         precogFrame:SetFrameLevel(frame:GetFrameLevel())
+
         precogFrame.myHealPrediction = precogFrame:CreateTexture(prefix .. "MyHealPredictionBar", "ARTWORK", "MyHealPredictionBarTemplate", 1)
         precogFrame.otherHealPrediction = precogFrame:CreateTexture(prefix .. "OtherPredictionBar", "ARTWORK", "OtherHealPredictionBarTemplate", 1)
         precogFrame.totalAbsorb = precogFrame:CreateTexture(prefix .. "TotalAbsorbBar", "BORDER", "TotalAbsorbBarTemplate", 5)
@@ -219,6 +217,7 @@ local function SetupRaidFrames(frame)
                 absorbGlow:SetDrawLayer("OVERLAY")
             end
         end
+
         if Precog.db["CUFAbsorbs"] then
             EventRegistry:RegisterCallback("Precognito", function(_, unitGUID)
                 local unit = frame.displayedUnit or frame.unit
@@ -229,6 +228,10 @@ local function SetupRaidFrames(frame)
                 end
             end)
         end
+
+        CompactUnitFrame_UpdateHealPrediction(frame)
+    else
+        CompactUnitFrame_UpdateHealPrediction(frame)
     end
 end
 hooksecurefunc("CompactUnitFrame_SetUnit", SetupRaidFrames)
@@ -662,7 +665,6 @@ end
 
 local settingsFrame = CreateFrame("Frame")
 settingsFrame:RegisterEvent("ADDON_LOADED")
-settingsFrame:RegisterEvent("PLAYER_LOGIN")
 settingsFrame:RegisterEvent("PLAYER_LOGOUT")
 settingsFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" and ... == addonName then
@@ -679,7 +681,7 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
 
         Precog.db = PrecognitoDB
 
-        local panel = CreateFrame("Frame", nil, InterfaceOptionsPanelContainer)
+        local panel = CreateFrame("Frame", nil)
         panel.name = "|cff33ff99Precognito|r"
         Settings.RegisterAddOnCategory(Settings.RegisterCanvasLayoutCategory(panel, panel.name))
 
@@ -692,9 +694,6 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
             btn:SetChecked(Precog.db[key])
             yOffset = yOffset - 30
         end
-    elseif event == "PLAYER_LOGOUT" then
-        PrecognitoDB = Precog.db
-    elseif event == "PLAYER_LOGIN" then
 
         for v in pairs(whitelist) do
             if v then
@@ -761,7 +760,6 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
 
         -- #6
         if Precog.db.CUFPredicts or Precog.db.CUFAbsorbs or Precog.db.CUFOvershield then
-            -- #4
             hooksecurefunc("CompactUnitFrame_OnEvent", function(self, event, ...)
                 local arg1 = ...
 
@@ -788,7 +786,8 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
                 end
             end)
         end
-
+    elseif event == "PLAYER_LOGOUT" then
+        PrecognitoDB = Precog.db
     elseif event == "PLAYER_TARGET_CHANGED" then
         UnitFrameHealPredictionBars_Update(TargetFrame)
     end
