@@ -1,9 +1,9 @@
-## Interface: 10503, 10504, 10505, 10506, 10507, 10508
+## Interface: 30404
 ## Title: Precognito
 ## Version: 3.4
 ## Author: Xyz
 ## SavedVariablesPerCharacter: PrecognitoDB
 
 API/BuilderSpenderFrame.xml
-API/AbsorbAPIVanilla.lua
+API/AbsorbAPIWrath.lua
 Precognito.lua
