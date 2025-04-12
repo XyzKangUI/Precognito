@@ -157,39 +157,42 @@ local function SortEffects(a, b)
 end
 
 -- Tries to get a working unitId
-local function GetUnitId(guid)
-    if not guid then
-        return
-    end
+local GetUnitId = UnitTokenFromGUID
 
-    local unitIds = {
-        { id = "player", max = false },
-        { id = "pet", max = false },
-        { id = "party", max = 4 },
-        { id = "partypet", max = 4 },
-        { id = "raid", max = 40 },
-        { id = "raidpet", max = 40 },
-        { id = "nameplate", max = 40 },
-        { id = "target", max = false },
-    }
+if not GetUnitId then
+    GetUnitId = function(guid)
+        if not guid then
+            return
+        end
 
-    for _, unit in pairs(unitIds) do
-        if unit.max then
-            for i = 1, unit.max do
-                local unitId = unit.id .. i
-                if UnitGUID(unitId) == guid then
-                    return unitId
+        local unitIds = {
+            { id = "player", max = false },
+            { id = "pet", max = false },
+            { id = "party", max = 4 },
+            { id = "partypet", max = 4 },
+            { id = "raid", max = 40 },
+            { id = "raidpet", max = 40 },
+            { id = "nameplate", max = 40 },
+            { id = "target", max = false },
+        }
+
+        for _, unit in pairs(unitIds) do
+            if unit.max then
+                for i = 1, unit.max do
+                    local unitId = unit.id .. i
+                    if UnitGUID(unitId) == guid then
+                        return unitId
+                    end
+                end
+            else
+                if UnitGUID(unit.id) == guid then
+                    return unit.id
                 end
             end
-        else
-            if UnitGUID(unit.id) == guid then
-                return unit.id
-            end
         end
+        return nil
     end
-    return nil
 end
-
 
 
 --------------------
