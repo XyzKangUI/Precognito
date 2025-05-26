@@ -42,6 +42,22 @@ local specificAbsorbs = {
     [91711] = true, -- Nether Ward
     [543] = true, -- Mage Ward
     [1463] = true, -- Mana Shield
+    [115295] = true, -- Guard
+    [116849] = true, -- Life Cocoon
+    [112048] = true, -- Shield Barrier
+    [127399] = true, -- Power Word: Shield
+    [123258] = true, -- Power Word: Shield
+    [104048] = true, -- Twilight Ward
+    [131624] = true, -- Twilight Ward
+    [131623] = true, -- Twilight Ward
+    [20925] = true, -- Sacred Shield
+    [114908] = true, -- Spirit Shell
+    [108366] = true, -- Soul Leech
+    [112048] = true, -- Shield Barrier
+    [137633] = true, -- Crystal Shell
+    [138979] = true, -- Soul Barrier
+    [119839] = true, -- Fury Ward
+    [145379] = true, -- Nature's Barrier
 }
 
 local scValues = {

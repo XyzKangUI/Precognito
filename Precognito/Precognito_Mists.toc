@@ -1,0 +1,9 @@
+## Interface: 50500
+## Title: Precognito
+## Version: 3.4
+## Author: Xyz
+## SavedVariablesPerCharacter: PrecognitoDB
+
+API/BuilderSpenderFrame.xml
+API/AbsorbAPI.lua
+Precognito.lua
