@@ -12,7 +12,7 @@ local UnitIsUnit, UnitGUID = UnitIsUnit, UnitGUID
 local min, max = math.min, math.max
 local strfind = string.find
 local UnitFrameUpdate
-local UnitGetTotalAbsorbs = Precog.UnitGetTotalAbsorbs
+local UnitGetTotalAbsorbs = UnitGetTotalAbsorbs
 local notCata = (select(7, GetBuildInfo()) < 40400)
 
 if not UnitGetTotalAbsorbs then
@@ -20,8 +20,11 @@ if not UnitGetTotalAbsorbs then
         if not (unit and Precog) then
             return
         end
-        return Precog.Unit_Total(UnitGUID(unit))
+        return Precog.Unit_Total and Precog.Unit_Total(UnitGUID(unit)) or Precog.UnitGetTotalAbsorbs(unit)
     end
+end
+
+if not Precog.UnitGetTotalAbsorbs then
     Precog.UnitGetTotalAbsorbs = UnitGetTotalAbsorbs
 end
 
@@ -59,7 +62,7 @@ local function CompactUnitFrame_UpdateHealPredictions(frame)
 
     local myIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit, "player") or 0
     local allIncomingHeal = UnitGetIncomingHeals(frame.displayedUnit) or 0
-    local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.displayedUnit) or 0
+    local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0
     local necroAmount = 0
 
     if precogFrame.NecroAbsorbBar and Precog.db.CUFNecro then
@@ -155,7 +158,7 @@ local function CompactUnitFrame_UpdateHealPredictions(frame)
             return
         end
 
-        local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.displayedUnit) or 0
+        local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0
         if totalAbsorb > maxHealth then
             totalAbsorb = maxHealth
         end
@@ -304,16 +307,29 @@ local function UnitFrameHealPredictionBars_Update(frame)
 
     local myIncomingHeal = UnitGetIncomingHeals(frame.unit, "player") or 0;
     local allIncomingHeal = UnitGetIncomingHeals(frame.unit) or 0;
-    local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.unit) or 0;
+    local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0;
     local necroAmount = 0
 
     if frame.necroAbsorbBar and Precog.db.necroTrack then
         necroAmount = Precog.NecroAbsorb(frame.unit) or 0
     end
 
+    local myCurrentHealAbsorb = 0;
+    if ( frame.healAbsorbBar ) then
+        myCurrentHealAbsorb = UnitGetTotalHealAbsorbs and UnitGetTotalHealAbsorbs(frame.unit) or 0;
+
+        --We don't fill outside the health bar with healAbsorbs.  Instead, an overHealAbsorbGlow is shown.
+        if ( health < myCurrentHealAbsorb ) then
+            frame.overHealAbsorbGlow:Show();
+            myCurrentHealAbsorb = health;
+        else
+            frame.overHealAbsorbGlow:Hide();
+        end
+    end
+
     --See how far we're going over the health bar and make sure we don't go too far out of the frame.
-    if (health + allIncomingHeal > maxHealth * MAX_INCOMING_HEAL_OVERFLOW) then
-        allIncomingHeal = maxHealth * MAX_INCOMING_HEAL_OVERFLOW - health;
+    if ( health - myCurrentHealAbsorb + allIncomingHeal > maxHealth * MAX_INCOMING_HEAL_OVERFLOW ) then
+        allIncomingHeal = maxHealth * MAX_INCOMING_HEAL_OVERFLOW - health + myCurrentHealAbsorb;
     end
 
     local otherIncomingHeal = 0;
@@ -327,13 +343,13 @@ local function UnitFrameHealPredictionBars_Update(frame)
 
     --We don't fill outside the the health bar with absorbs.  Instead, an overAbsorbGlow is shown.
     local overAbsorb = false;
-    if (health + allIncomingHeal + totalAbsorb - necroAmount >= maxHealth and Precog.db.healPredict) or (health + totalAbsorb >= maxHealth) then
+    if (health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb - necroAmount >= maxHealth and Precog.db.healPredict) or (health + totalAbsorb >= maxHealth) then
         if (totalAbsorb > 0) then
             overAbsorb = true
         end
 
-        if ((allIncomingHeal - necroAmount) > 0) and Precog.db.healPredict then
-            totalAbsorb = max(0, maxHealth - (health + allIncomingHeal - necroAmount));
+        if ((allIncomingHeal - necroAmount) > myCurrentHealAbsorb) and Precog.db.healPredict then
+            totalAbsorb = max(0, maxHealth - (health - myCurrentHealAbsorb + allIncomingHeal - necroAmount));
         else
             totalAbsorb = max(0, maxHealth - health);
         end
@@ -348,30 +364,68 @@ local function UnitFrameHealPredictionBars_Update(frame)
     end
 
     local healthTexture = frame.healthbar:GetStatusBarTexture();
+    local myCurrentHealAbsorbPercent = 0;
+    local healAbsorbTexture = nil;
+
+    if ( frame.healAbsorbBar ) then
+        myCurrentHealAbsorbPercent = myCurrentHealAbsorb / maxHealth;
+
+        --If allIncomingHeal is greater than myCurrentHealAbsorb, then the current
+        --heal absorb will be completely overlayed by the incoming heals so we don't show it.
+        if ( myCurrentHealAbsorb > allIncomingHeal ) then
+            local shownHealAbsorb = myCurrentHealAbsorb - allIncomingHeal;
+            local shownHealAbsorbPercent = shownHealAbsorb / maxHealth;
+
+            healAbsorbTexture = frame.healAbsorbBar:UpdateFillPosition(healthTexture, shownHealAbsorb, -shownHealAbsorbPercent);
+
+            --If there are incoming heals the left shadow would be overlayed by the incoming heals
+            --so it isn't shown.
+            if frame.healAbsorbBar.LeftShadow then
+                frame.healAbsorbBar.LeftShadow:SetShown(allIncomingHeal <= 0);
+            end
+
+            -- The right shadow is only shown if there are absorbs on the health bar.
+            if frame.healAbsorbBar.RightShadow then
+                frame.healAbsorbBar.RightShadow:SetShown(totalAbsorb > 0)
+            end
+        else
+            frame.healAbsorbBar:Hide();
+        end
+    end
 
     --Show myIncomingHeal on the health bar.
     local incomingHealTexture;
     if Precog.db.healPredict then
-        if (frame.myHealPredictionBar and (frame.myHealPredictionBar.UpdateFillPosition ~= nil)) then
-            incomingHealTexture = frame.myHealPredictionBar:UpdateFillPosition(healthTexture, myIncomingHeal - necroAmount);
+        if frame.myHealPredictionBar then
+            incomingHealTexture = frame.myHealPredictionBar:UpdateFillPosition(healthTexture, myIncomingHeal - necroAmount, -myCurrentHealAbsorbPercent);
         end
 
         local otherHealLeftTexture = (myIncomingHeal > 0) and incomingHealTexture or healthTexture;
+        local xOffset = (myIncomingHeal > 0) and 0 or -myCurrentHealAbsorbPercent;
 
         --Append otherIncomingHeal on the health bar
-        if (frame.otherHealPredictionBar and (frame.otherHealPredictionBar.UpdateFillPosition ~= nil)) then
-            incomingHealTexture = frame.otherHealPredictionBar:UpdateFillPosition(otherHealLeftTexture, otherIncomingHeal - necroAmount, 0);
+        if frame.otherHealPredictionBar then
+            incomingHealTexture = frame.otherHealPredictionBar:UpdateFillPosition(otherHealLeftTexture, otherIncomingHeal - necroAmount, xOffset);
         end
     else
         incomingHealTexture = healthTexture
     end
 
     --Append absorbs to the correct section of the health bar.
-    local appendTexture = incomingHealTexture or healthTexture;
+    local appendTexture = nil
+
+    if ( healAbsorbTexture ) then
+        --If there is a healAbsorb part shown, append the absorb to the end of that.
+        appendTexture = healAbsorbTexture;
+    else
+        --Otherwise, append the absorb to the end of the the incomingHeals or health part;
+        appendTexture = incomingHealTexture or healthTexture;
+    end
+
     local absorbBar = frame.totalAbsorbBars
 
-    if absorbBar and absorbBar.UpdateFillPosition and Precog.db.absorbTrack then
-        if necroAmount >= allIncomingHeal then
+    if absorbBar and Precog.db.absorbTrack then
+        if necroAmount >= allIncomingHeal - myCurrentHealAbsorb then
             appendTexture = healthTexture
         end
 
@@ -398,7 +452,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
             return
         end
 
-        local totalAbsorb = Precog.UnitGetTotalAbsorbs(frame.unit) or 0
+        local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0
         if totalAbsorb > maxHealth then
             totalAbsorb = maxHealth
         end
@@ -564,7 +618,6 @@ local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myMan
         end
     end
 
-
     if Precog.db.absorbTrack then
         EventRegistry:RegisterCallback("Precognito", function(_, unitGUID)
             local unit = self.unit
@@ -576,8 +629,6 @@ local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myMan
         end)
     end
 
-    self.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New)
-
     if (self.unit == "player") then
         if Precog.db.animHealth then
             self.PlayerFrameHealthBarAnimatedHealth = Mixin(CreateFrame("StatusBar", nil, self), AnimatedHealthLossMixin)
@@ -587,7 +638,7 @@ local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myMan
             self.PlayerFrameHealthBarAnimatedHealth:SetUnitHealthBar("player", self.healthbar)
             self.PlayerFrameHealthBarAnimatedHealth:Hide()
             function self.PlayerFrameHealthBarAnimatedHealth:UpdateLossAnimation(currentHealth)
-                local totalAbsorb = Precog.UnitGetTotalAbsorbs(self.unit) or 0
+                local totalAbsorb = UnitGetTotalAbsorbs(self.unit) or 0
                 if totalAbsorb > 0 then
                     self:CancelAnimation()
                 end
@@ -746,7 +797,7 @@ displayOrder = {
     "Feedback",
 }
 
-if WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC then
+if WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC or WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC then
     options.CUFNecro = { "Raidframe Necrotic Strike Absorbs", false }
     options.necroTrack = { "UnitFrame Necrotic Strike Absorbs", false }
 
@@ -762,6 +813,7 @@ end
 
 local settingsFrame = CreateFrame("Frame")
 settingsFrame:RegisterEvent("ADDON_LOADED")
+settingsFrame:RegisterEvent("PLAYER_LOGIN")
 settingsFrame:RegisterEvent("PLAYER_LOGOUT")
 settingsFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" and ... == addonName then
@@ -899,5 +951,13 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
         UnitFrameHealPredictionBars_Update(TargetFrame)
     elseif event == "PLAYER_FOCUS_CHANGED" then
         UnitFrameHealPredictionBars_Update(FocusFrame)
+    elseif event == "PLAYER_LOGIN" then
+        if Precog.db.healPredict or Precog.db.animHealth or Precog.db.absorbTrack then
+            for v in pairs(whitelist) do
+                if v then
+                    v.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New)
+                end
+            end
+        end
     end
 end)
