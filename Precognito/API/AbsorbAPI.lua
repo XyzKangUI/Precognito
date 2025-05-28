@@ -58,6 +58,7 @@ local specificAbsorbs = {
     [138979] = true, -- Soul Barrier
     [119839] = true, -- Fury Ward
     [145379] = true, -- Nature's Barrier
+    [108270] = true, -- Stone Bulwark Totem
 }
 
 local scValues = {
