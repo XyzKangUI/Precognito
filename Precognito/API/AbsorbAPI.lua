@@ -58,7 +58,7 @@ local specificAbsorbs = {
     [138979] = true, -- Soul Barrier
     [119839] = true, -- Fury Ward
     [145379] = true, -- Nature's Barrier
-    [108270] = true, -- Stone Bulwark Totem
+    [114893] = true, -- Stone Bulwark Totem
 }
 
 local scValues = {
@@ -203,7 +203,9 @@ end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("UNIT_AURA")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+if WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC or WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC then
+    frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+end
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "UNIT_AURA" then
