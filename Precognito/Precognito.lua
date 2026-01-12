@@ -1,3 +1,4 @@
+
 local addonName, Precog = ...
 local whitelist = {
     [PlayerFrame] = true,
@@ -12,8 +13,10 @@ local UnitIsUnit, UnitGUID = UnitIsUnit, UnitGUID
 local min, max = math.min, math.max
 local strfind = string.find
 local UnitFrameUpdate
-local UnitGetTotalAbsorbs = UnitGetTotalAbsorbs
-local notCata = (select(7, GetBuildInfo()) < 40400)
+local build = select(7, GetBuildInfo())
+local isTBC = (WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC)
+local notCata = (build < 40400) and not isTBC
+local UnitGetTotalAbsorbs = (not notCata and not isTBC) and UnitGetTotalAbsorbs or nil
 
 if not UnitGetTotalAbsorbs then
     UnitGetTotalAbsorbs = function(unit)
@@ -308,6 +311,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
     local myIncomingHeal = UnitGetIncomingHeals(frame.unit, "player") or 0;
     local allIncomingHeal = UnitGetIncomingHeals(frame.unit) or 0;
     local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0;
+
     local necroAmount = 0
 
     if frame.necroAbsorbBar and Precog.db.necroTrack then
@@ -500,7 +504,11 @@ local function UnitFrameHealthBar_OnUpdate_New(self)
                 end
                 self:SetValue(currValue)
                 self.currValue = currValue
-                TextStatusBar_UpdateTextString(self)
+                if TextStatusBar_UpdateTextString then
+                    TextStatusBar_UpdateTextString(self)
+                else
+                    self:UpdateTextString()
+                end
                 UnitFrameHealPredictionBars_Update(self:GetParent())
             end
         end
