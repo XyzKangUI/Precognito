@@ -305,6 +305,8 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
     local destEffects = activeEffectsBySpell[destGUID];
     local effectInfo = Effects[spellId];
     local effectEntry;
+    
+    local timerId = destGUID .. "_" .. spellId 
 
     local value, quality, extra = effectInfo[3](sourceGUID, sourceName, destGUID, destName, spellId, destEffects);
 
@@ -312,9 +314,8 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
         return ;
     end
 
-    -- No entry yet for this unit
     if (not destEffects) then
-        effectEntry = { spellId, effectInfo[1], value, value, quality, 0, extra };
+        effectEntry = { spellId, effectInfo[1], value, value, quality, timerId, extra };
 
         destEffects = { [-1] = 0, [-2] = 1.0, [spellId] = effectEntry };
 
@@ -323,9 +324,8 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
 
         EventRegistry:TriggerEvent("Precognito", destGUID, destGUID, destGUID, destGUID)
 
-        -- Not this specific effect yet
     elseif (not destEffects[spellId]) then
-        effectEntry = { spellId, effectInfo[1], value, value, quality, 0, extra };
+        effectEntry = { spellId, effectInfo[1], value, value, quality, timerId, extra };
 
         destEffects[spellId] = effectEntry;
 
@@ -333,7 +333,6 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
         sort(activeEffectsByPriority[destGUID], SortEffects);
 
         EventRegistry:TriggerEvent("Precognito", destGUID)
-        -- Effect exists already
     else
         effectEntry = destEffects[spellId];
         local prevAmount = effectEntry[3];
@@ -341,17 +340,16 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
         effectEntry[3] = value;
         effectEntry[4] = value;
         effectEntry[5] = quality;
+        effectEntry[6] = timerId;
         effectEntry[7] = extra;
 
         sort(activeEffectsByPriority[destGUID], SortEffects);
 
         EventRegistry:TriggerEvent("Precognito", destGUID)
 
-        -- Adjust value in case this is a visible absorb to get the difference
         value = value - prevAmount;
 
-        -- Cancel the exting duration timeout timer
-        AM_Core:CancelTimer(effectEntry[6], true);
+        AM_Core:CancelTimer(timerId);
     end
 
     if quality and (quality < destEffects[-2]) then
@@ -365,14 +363,12 @@ function AM_Core.ApplySingularEffect(sourceGUID, sourceName, destGUID, destName,
     end
 
     if (effectInfo[2]) then
-        -- We add a 5s grace period for latency and all kind of stuff
-        -- This duration timeout should only be needed if the unit moved out of combat log
-        -- reporting range anyway
         AM_Core:ScheduleUniqueTimer(effectEntry[6], AM_Events.OnSingularTimeout, effectInfo[2] + 5, { destGUID, spellId })
     else
         AM_Core:ScheduleRepeatingTimer(effectEntry[6], AM_Events.OnSingularActivityCheck, 8, { destGUID, spellId })
     end
 end
+
 
 function AM_Core.HitUnit(guid, absorbedTotal, overkill, spellSchool)
     local guidEffects = activeEffectsBySpell[guid];
@@ -632,23 +628,21 @@ function AM_Core.RemoveCombatTrigger(target, event, func)
     end
 end
 
--- An extension of AceTimer to schedule a one-shot timer that will not
--- be scheduled twice if scheduled again before it's fired.
 function AM_Core:ScheduleUniqueTimer(id, callback, delay, arg)
-    if not activeTimers[id] then
-        activeTimers[id] = C_Timer.After(delay, function()
-            callback(arg)
-            activeTimers[id] = nil
-        end)
-    end
+    if activeTimers[id] then AM_Core:CancelTimer(id) end
+
+    activeTimers[id] = C_Timer.NewTimer(delay, function()
+        activeTimers[id] = nil
+        callback(arg)
+    end)
 end
 
 function AM_Core:ScheduleRepeatingTimer(id, callback, interval, arg)
-    if not activeTimers[id] then
-        activeTimers[id] = C_Timer.NewTicker(interval, function()
-            callback(arg)
-        end)
-    end
+    if activeTimers[id] then AM_Core:CancelTimer(id) end
+
+    activeTimers[id] = C_Timer.NewTicker(interval, function()
+        callback(arg)
+    end)
 end
 
 function AM_Core:CancelTimer(id)
@@ -660,11 +654,8 @@ function AM_Core:CancelTimer(id)
 end
 
 function AM_Core:CancelAllTimers()
-    for id, timer in pairs(activeTimers) do
-        if timer and timer.Cancel then
-            timer:Cancel()
-        end
-        activeTimers[id] = nil
+    for id, _ in pairs(activeTimers) do
+        AM_Core:CancelTimer(id)
     end
 end
 
@@ -794,8 +785,7 @@ end
 function AM_Events.STATS_CHANGED()
     local baseAP, plusAP, minusAP = UnitAttackPower("player");
 
-    UnitStats[playerGUID][2] = baseAP + plusAP - minusAP;
-    -- TODO: What about spell power ~= healing spell power?
+    UnitStats[playerGUID][2] = baseAP + plusAP + minusAP;
     UnitStats[playerGUID][3] = GetSpellBonusHealing();
 end
 

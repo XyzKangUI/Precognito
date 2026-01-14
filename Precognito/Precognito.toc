@@ -1,6 +1,6 @@
 ## Interface: 40400, 40401, 40402, 40403, 40404, 40405
 ## Title: Precognito
-## Version: 3.4
+## Version: 3.8
 ## Author: Xyz
 ## SavedVariablesPerCharacter: PrecognitoDB
 

@@ -1,6 +1,6 @@
 ## Interface: 30404
 ## Title: Precognito
-## Version: 3.5
+## Version: 3.8
 ## Author: Xyz
 ## SavedVariablesPerCharacter: PrecognitoDB
 

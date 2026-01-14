@@ -389,24 +389,33 @@ end
 
 function AM_Core:ScheduleUniqueTimer(id, callback, delay, arg)
     if activeTimers[id] then AM_Core:CancelTimer(id) end
-    activeTimers[id] = C_Timer.After(delay, function()
-        callback(arg); activeTimers[id] = nil
+
+    activeTimers[id] = C_Timer.NewTimer(delay, function()
+        activeTimers[id] = nil
+        callback(arg)
     end)
 end
 
 function AM_Core:ScheduleRepeatingTimer(id, callback, interval, arg)
     if activeTimers[id] then AM_Core:CancelTimer(id) end
-    activeTimers[id] = C_Timer.NewTicker(interval, function() callback(arg) end)
+
+    activeTimers[id] = C_Timer.NewTicker(interval, function()
+        callback(arg)
+    end)
 end
 
 function AM_Core:CancelTimer(id)
     local timer = activeTimers[id]
-    if timer and timer.Cancel then timer:Cancel() end
+    if timer and timer.Cancel then
+        timer:Cancel()
+    end
     activeTimers[id] = nil
 end
 
 function AM_Core:CancelAllTimers()
-    for id, _ in pairs(activeTimers) do AM_Core:CancelTimer(id) end
+    for id, _ in pairs(activeTimers) do
+        AM_Core:CancelTimer(id)
+    end
 end
 
 ApplySingularEffect = AM_Core.ApplySingularEffect;
@@ -527,7 +536,7 @@ end
 
 function AM_Events.STATS_CHANGED()
     local baseAP, plusAP, minusAP = UnitAttackPower("player");
-    UnitStats[playerGUID][2] = baseAP + plusAP - minusAP;
+    UnitStats[playerGUID][2] = baseAP + plusAP + minusAP;
 
     if (playerClass == "MAGE") then
         local frost = GetSpellBonusDamage(5)
@@ -729,7 +738,8 @@ local function priest_ApplyScaling(guid, level, baseFactor, spFactor)
             local learnLevel = v[2]
             local levelBonus = 0
             if level > learnLevel then
-                levelBonus = (math.min(level, 70) - learnLevel) * ppl
+                levelBonus = (math.min(level, learnLevel + 5) - learnLevel) * ppl
+                if levelBonus < 0 then levelBonus = 0 end
             end
             rankValue = v[3] + levelBonus
 
@@ -877,6 +887,16 @@ local function items_ScarabBrooch_Create(sourceGUID, sourceName, destGUID, destN
     return (existing + charge), 1.0
 end
 
+local function CreateAbsorbHit(magicSchool)
+    return function(effectEntry, absorbedRemaining, overkill, spellSchool)
+        if (spellSchool ~= magicSchool) then
+            return 0, true;
+        end
+        return generic_Hit(effectEntry, absorbedRemaining, overkill, spellSchool);
+    end
+end
+
+
 -----------------
 -- Data Tables --
 -----------------
@@ -930,9 +950,23 @@ AM_Core.Effects = {
     [27779] = { 1.0, 30, function() return 349, 1.0; end, generic_Hit },
     [28810] = { 1.0, 30, function() return 499, 1.0; end, generic_Hit },
     [27688] = { 1.0, 300, function() return 2499, 1.0; end, generic_Hit },
-    [128] = { 2.0, 60, function() return 400, 1.0; end, warlock_spellStone_Hit },
-    [17729] = { 2.0, 60, function() return 650, 1.0; end, warlock_spellStone_Hit },
-    [17730] = { 2.0, 60, function() return 900, 1.0; end, warlock_spellStone_Hit },
+    
+    -- Major Fire Protection Potion
+    [28511] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_FIRE) },
+    -- Major Frost Protection Potion
+    [28512] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_FROST) },
+    -- Major Nature Protection Potion
+    [28513] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_NATURE) },
+    -- Major Shadow Protection Potion
+    [28537] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_SHADOW) },
+    -- Major Arcane Protection Potion
+    [28536] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_ARCANE) },
+    -- Major Holy Protection Potion
+    [28538] = { 1.0, 120, function() return 3400, 1.0; end, CreateAbsorbHit(SCHOOL_MASK_HOLY) },
+
+    -- Nigh-Invulnerability Belt
+    [30458] = { 1.0, 8, function() return 4000, 1.0; end, generic_Hit },
+
 };
 
 AM_Core.CombatTriggers = {

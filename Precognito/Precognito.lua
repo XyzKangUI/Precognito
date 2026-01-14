@@ -167,6 +167,7 @@ local function CompactUnitFrame_UpdateHealPredictions(frame)
         end
 
         if totalAbsorb > 0 then
+            absorbOverlay:ClearAllPoints()
             if absorbBar:IsShown() then
                 absorbOverlay:SetPoint("TOPRIGHT", absorbBar, "TOPRIGHT", 0, 0)
                 absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar, "BOTTOMRIGHT", 0, 0)
@@ -462,6 +463,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
         end
 
         if totalAbsorb > 0 then
+            absorbOverlay:ClearAllPoints()
             if absorbBar:IsShown() then
                 absorbOverlay:SetPoint("TOPRIGHT", absorbBar.FillMask, "TOPRIGHT", 0, 0)
                 absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar.FillMask, "BOTTOMRIGHT", 0, 0)
@@ -493,27 +495,30 @@ local function UnitFrameHealPredictionBars_Update(frame)
 end
 UnitFrameUpdate = UnitFrameHealPredictionBars_Update
 
+local hpCache = {} 
+
 local function UnitFrameHealthBar_OnUpdate_New(self)
     if (not self.disconnected and not self.lockValues) then
         local currValue = UnitHealth(self.unit)
-        local animatedLossBar = self.AnimatedLossBar
-        if (currValue ~= self.currValue) then
+        local animatedLossBar = self.AnimatedLossBar 
+        local lastValue = self[hpCache] or 0
+
+        if (currValue ~= lastValue) then
             if (not self.ignoreNoUnit or UnitGUID(self.unit)) then
                 if animatedLossBar then
-                    animatedLossBar:UpdateHealth(currValue, self.currValue)
+                    animatedLossBar:UpdateHealth(currValue, lastValue)
                 end
-                self:SetValue(currValue)
-                self.currValue = currValue
-                if TextStatusBar_UpdateTextString then
-                    TextStatusBar_UpdateTextString(self)
-                else
-                    self:UpdateTextString()
+                
+                if self:GetParent() then
+                    UnitFrameHealPredictionBars_Update(self:GetParent())
                 end
-                UnitFrameHealPredictionBars_Update(self:GetParent())
             end
-        end
-        if animatedLossBar then
-            animatedLossBar:UpdateLossAnimation(currValue)
+            
+            if animatedLossBar then
+                animatedLossBar:UpdateLossAnimation(currValue)
+            end
+            
+            self[hpCache] = currValue
         end
     end
 end
@@ -679,8 +684,6 @@ local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myMan
         end
     end
 
-    UnitFrameHealthBar_Update(self.healthbar, self.unit)
-    UnitFrameManaBar_Update(self.manabar, self.unit)
     UnitFrameHealPredictionBars_Update(self)
 end
 
@@ -963,7 +966,7 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
         if Precog.db.healPredict or Precog.db.animHealth or Precog.db.absorbTrack then
             for v in pairs(whitelist) do
                 if v then
-                    v.healthbar:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New)
+                    v.healthbar:HookScript("OnUpdate", UnitFrameHealthBar_OnUpdate_New)
                 end
             end
         end
