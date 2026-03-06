@@ -289,14 +289,16 @@ hooksecurefunc("CompactUnitFrame_SetUnit", SetupRaidFrames)
 
 local MAX_INCOMING_HEAL_OVERFLOW = 1.0;
 local function UnitFrameHealPredictionBars_Update(frame)
-    if (not frame.myHealPredictionBar and not frame.otherHealPredictionBar and not frame.healAbsorbBars and not frame.totalAbsorbBars) then
+    if not whitelist[frame] or (not frame.myHealPredictionBar and not frame.otherHealPredictionBar and not frame.healAbsorbBars and not frame.totalAbsorbBars) then
         return ;
     end
 
     local _, maxHealth = frame.healthbar:GetMinMaxValues();
-    local health = frame.healthbar:GetValue();
     if (maxHealth <= 100) then
-        return ;
+        if frame.totalAbsorbBars:IsShown() then
+            frame.totalAbsorbBars:Hide()
+        end
+        return
     end
 
     if Precog.db.healPredict then
@@ -308,6 +310,7 @@ local function UnitFrameHealPredictionBars_Update(frame)
         end
     end
 
+    local health = frame.healthbar:GetValue();
     local myIncomingHeal = UnitGetIncomingHeals(frame.unit, "player") or 0;
     local allIncomingHeal = UnitGetIncomingHeals(frame.unit) or 0;
     local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0;
@@ -435,49 +438,56 @@ local function UnitFrameHealPredictionBars_Update(frame)
 
         absorbBar:UpdateFillPosition(appendTexture, totalAbsorb);
     end
-
+    
     if Precog.db.Overshield then
-        if not absorbBar or absorbBar:IsForbidden() then
-            return
-        end
+        local absorbBar = frame.totalAbsorbBars
+        if absorbBar and not absorbBar:IsForbidden() then
+            local absorbGlow = frame.overAbsorbGlow
+            local healthBar = frame.healthbar
+            local absorbOverlay = absorbBar.TiledFillOverlay
 
-        local absorbOverlay = absorbBar.TiledFillOverlay
-        if not absorbOverlay or absorbOverlay:IsForbidden() then
-            return
-        end
+            if healthBar and not healthBar:IsForbidden() then
+                local curHealth = UnitHealth(frame.unit)
+                local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0
 
-        local healthBar = frame.healthbar
-        if not healthBar or healthBar:IsForbidden() then
-            return
-        end
+                if totalAbsorb > 0 then
+                    local effectiveHealth = curHealth + totalAbsorb
+                    local _, maxHealth = healthBar:GetMinMaxValues()
+                    
+                    if effectiveHealth <= maxHealth then
+                        if absorbOverlay then absorbOverlay:Hide() end
+                        if absorbGlow then absorbGlow:Hide() end
+                    else
+                        local healthBarTexture = healthBar:GetStatusBarTexture()
+                        local xOffset = (maxHealth / effectiveHealth) - 1
+                        absorbBar:UpdateFillPosition(healthBarTexture, totalAbsorb, xOffset)
 
-        local _, maxHealth = healthBar:GetMinMaxValues()
-        if maxHealth <= 0 then
-            return
-        end
+                        if absorbOverlay and absorbBar.FillMask then
+                            absorbOverlay:ClearAllPoints()
+                            absorbOverlay:SetPoint("TOPLEFT", absorbBar.FillMask, "TOPLEFT", 0, 0)
+                            absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0)
 
-        local totalAbsorb = UnitGetTotalAbsorbs(frame.unit) or 0
-        if totalAbsorb > maxHealth then
-            totalAbsorb = maxHealth
-        end
+                            local totalWidth = healthBar:GetWidth()
+                            local diff = max(0, maxHealth - curHealth)
+                            local barSize = (diff > 0) and ((diff / maxHealth) * totalWidth) or totalWidth
+                            local tileSize = absorbOverlay.tileSize or 32
 
-        if totalAbsorb > 0 then
-            if absorbBar:IsShown() then
-                absorbOverlay:SetPoint("TOPRIGHT", absorbBar.FillMask, "TOPRIGHT", 0, 0)
-                absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar.FillMask, "BOTTOMRIGHT", 0, 0)
-            else
-                absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0)
-                absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0)
+                            absorbOverlay:SetTexCoord(0, barSize / tileSize, 0, healthBar:GetHeight() / tileSize)
+                            absorbOverlay:Show()
+                        end
+
+                        if absorbGlow and absorbBar.FillMask then
+                            absorbGlow:ClearAllPoints()
+                            absorbGlow:SetPoint("TOPLEFT", absorbBar.FillMask, "TOPLEFT", -7, 0)
+                            absorbGlow:SetPoint("BOTTOMLEFT", absorbBar.FillMask, "BOTTOMLEFT", -7, 0)
+                            absorbGlow:Show()
+                        end
+                    end
+                else
+                    if absorbOverlay then absorbOverlay:Hide() end
+                    if absorbGlow then absorbGlow:Hide() end
+                end
             end
-
-            local totalWidth, totalHeight = healthBar:GetSize()
-            local barSize = totalAbsorb / maxHealth * totalWidth
-
-            absorbOverlay:SetWidth(barSize)
-            absorbOverlay:SetTexCoord(0, min(max(barSize / absorbBar.tiledFillOverlaySize, 0), 1), 0, min(max(totalHeight / absorbBar.tiledFillOverlaySize, 0), 1))
-            absorbOverlay:Show()
-        else
-            absorbOverlay:Hide()
         end
     end
 
@@ -497,6 +507,11 @@ local function UnitFrameHealthBar_OnUpdate_New(self)
     if (not self.disconnected and not self.lockValues) then
         local currValue = UnitHealth(self.unit)
         local animatedLossBar = self.AnimatedLossBar
+        
+        if not self.unitFrame then
+            self.unitFrame = self:GetParent()
+        end
+        
         if (currValue ~= self.currValue) then
             if (not self.ignoreNoUnit or UnitGUID(self.unit)) then
                 if animatedLossBar then
@@ -504,12 +519,9 @@ local function UnitFrameHealthBar_OnUpdate_New(self)
                 end
                 self:SetValue(currValue)
                 self.currValue = currValue
-                if TextStatusBar_UpdateTextString then
-                    TextStatusBar_UpdateTextString(self)
-                else
-                    self:UpdateTextString()
+                if self.unitFrame then
+                    UnitFrameHealPredictionBars_Update(self.unitFrame)
                 end
-                UnitFrameHealPredictionBars_Update(self:GetParent())
             end
         end
         if animatedLossBar then
@@ -678,9 +690,7 @@ local function UnitFrame_Initialize(self, totalAbsorbBars, overAbsorbGlow, myMan
             end
         end
     end
-
-    UnitFrameHealthBar_Update(self.healthbar, self.unit)
-    UnitFrameManaBar_Update(self.manabar, self.unit)
+    
     UnitFrameHealPredictionBars_Update(self)
 end
 
@@ -870,35 +880,6 @@ settingsFrame:SetScript("OnEvent", function(self, event, ...)
                     return
                 end
 
-                if Precog.db.Overshield then
-                    local absorbBar = self.totalAbsorbBars
-                    if not absorbBar or absorbBar:IsForbidden() then
-                        return
-                    end
-
-                    local absorbOverlay = self.totalAbsorbBars.TiledFillOverlay
-                    if not absorbOverlay or absorbOverlay:IsForbidden() then
-                        return
-                    end
-
-                    local healthBar = self.healthbar
-                    if not healthBar or healthBar:IsForbidden() then
-                        return
-                    end
-
-                    absorbOverlay:SetParent(healthBar)
-                    absorbOverlay:ClearAllPoints()
-
-                    local absorbGlow = self.overAbsorbGlow
-                    if absorbGlow and not absorbGlow:IsForbidden() then
-                        absorbGlow:ClearAllPoints()
-                        absorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", -5, 0)
-                        absorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", -5, 0)
-                        absorbGlow:SetAlpha(0.6)
-                    end
-                end
-
-                UnitFrameHealPredictionBars_UpdateMax(self)
                 UnitFrameHealPredictionBars_Update(self)
                 if Precog.db.animMana then
                     UnitFrameManaCostPredictionBars_Update(self)
